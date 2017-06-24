@@ -1,0 +1,753 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Redis," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.1.1" />
+
+
+
+
+
+
+<meta name="description" content="在阅读各类基本数据结构的时候，看到分配空间或调整空间时，使用的是形如 zmalloc 的函数。由于它的用法与 malloc 无异，所以一直把它等同于 malloc 进行阅读，直到看到 object.c 最后新增加的内存数据统计时，才注意到一些内存统计相关的功能，于是阅读了一下 Redis 内存管理相关的代码。 Redis 的内存管理策略Redis 在进行内存空间分配的时候，会在分配的空间前面增加一">
+<meta name="keywords" content="Redis">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Redis内存管理机制">
+<meta property="og:url" content="http://yoursite.com/2016/12/05/redis_malloc/index.html">
+<meta property="og:site_name" content="柿子的果盘">
+<meta property="og:description" content="在阅读各类基本数据结构的时候，看到分配空间或调整空间时，使用的是形如 zmalloc 的函数。由于它的用法与 malloc 无异，所以一直把它等同于 malloc 进行阅读，直到看到 object.c 最后新增加的内存数据统计时，才注意到一些内存统计相关的功能，于是阅读了一下 Redis 内存管理相关的代码。 Redis 的内存管理策略Redis 在进行内存空间分配的时候，会在分配的空间前面增加一">
+<meta property="og:updated_time" content="2017-06-23T09:40:01.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Redis内存管理机制">
+<meta name="twitter:description" content="在阅读各类基本数据结构的时候，看到分配空间或调整空间时，使用的是形如 zmalloc 的函数。由于它的用法与 malloc 无异，所以一直把它等同于 malloc 进行阅读，直到看到 object.c 最后新增加的内存数据统计时，才注意到一些内存统计相关的功能，于是阅读了一下 Redis 内存管理相关的代码。 Redis 的内存管理策略Redis 在进行内存空间分配的时候，会在分配的空间前面增加一">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post","offset":12,"offset_float":0,"b2t":false,"scrollpercent":false},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2016/12/05/redis_malloc/"/>
+
+
+
+
+
+  <title>Redis内存管理机制 | 柿子的果盘</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">柿子的果盘</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle">随手记录一些所读、所思、所感</p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2016/12/05/redis_malloc/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="柿子">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="柿子的果盘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">Redis内存管理机制</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2016-12-05T00:00:00+08:00">
+                2016-12-05
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/开源项目/" itemprop="url" rel="index">
+                    <span itemprop="name">开源项目</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>在阅读各类基本数据结构的时候，看到分配空间或调整空间时，使用的是形如 zmalloc 的函数。由于它的用法与 malloc 无异，所以一直把它等同于 malloc 进行阅读，直到看到 object.c 最后新增加的内存数据统计时，才注意到一些内存统计相关的功能，于是阅读了一下 Redis 内存管理相关的代码。</p>
+<h3 id="Redis-的内存管理策略"><a href="#Redis-的内存管理策略" class="headerlink" title="Redis 的内存管理策略"></a>Redis 的内存管理策略</h3><p>Redis 在进行内存空间分配的时候，会在分配的空间前面增加一个额外的空间，用于保存分配的空间的大小。同时，使用一个全局变量 used_memory 来记录 Redis 总共申请分配的空间大小。</p>
+<h3 id="第三方的-malloc-库"><a href="#第三方的-malloc-库" class="headerlink" title="第三方的 malloc 库"></a>第三方的 malloc 库</h3><p>Redis 支持使用第三方的 malloc 库（tcmalloc、 jemalloc 以及苹果平台的 malloc.h）来管理内存：</p>
+<ul>
+<li>tcmalloc：tcmalloc 是 google perftool 的一部分，与一般的内存池不同，它直接与 OS 打交道，内存闲置时 OS 会进行回收 (STL 内存池就不回收)，同时使用 TLS (Thread local storage) 管理内存池，避免一个线程内分配内存都要同步。</li>
+<li>jemalloc：jemalloc 与 tcmalloc相似，作者 Jason Evans 是 Free BSD 开发人员，性能与使用率与 tcmalloc 不相伯仲。tcmalloc 更方便与 google perftool 集成，进行性能评测。</li>
+</ul>
+<p>对于这些第三方库而言，有两个比较重要的特点：</p>
+<ul>
+<li>包括苹果平台的 malloc.h，这些第三方库与 STL 标准库可以通过调用 malloc_size(p) 直接获得指针 p 在分配时获得的空间大小。</li>
+<li>在分配小空间时，这些第三方库可能会多分配一些内存空间以供使用，例如对于 tcmalloc 而言，收到 833 字节到 1024 字节的内存分配请求，都会分配一个 1024 字节大小的内存块，这样会产生内存空间碎片。</li>
+</ul>
+<p>关于这些第三方库的实现原理，可以参考：<br><a href="http://www.360doc.com/content/13/0915/09/8363527_314549128.shtml。" target="_blank" rel="external">http://www.360doc.com/content/13/0915/09/8363527_314549128.shtml。</a></p>
+<p>在使用第三方库的时候，直接用这些库中的函数替换掉预先定义的函数，特别注意到，这些第三方库都实现了获取空间大小的方法，统一重新定义为 zmalloc_size(p)，同时使用 HAVE_MALLOC_SIZE 标记是否由 Redis 自己管理分配的空间大小（为 1 表示不由自己管理）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div></pre></td><td class="code"><pre><div class="line"><span class="meta">#<span class="meta-keyword">if</span> defined(USE_TCMALLOC)</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> ZMALLOC_LIB (<span class="meta-string">"tcmalloc-"</span> __xstr(TC_VERSION_MAJOR) <span class="meta-string">"."</span> __xstr(TC_VERSION_MINOR))</span></div><div class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;google/tcmalloc.h&gt;</span></span></div><div class="line"><span class="meta">#<span class="meta-keyword">if</span> (TC_VERSION_MAJOR == 1 &amp;&amp; TC_VERSION_MINOR &gt;= 6) || (TC_VERSION_MAJOR &gt; 1)</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> HAVE_MALLOC_SIZE 1</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> zmalloc_size(p) tc_malloc_size(p)</span></div><div class="line"><span class="meta">#<span class="meta-keyword">else</span></span></div><div class="line"><span class="meta">#<span class="meta-keyword">error</span> <span class="meta-string">"Newer version of tcmalloc required"</span></span></div><div class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></div><div class="line"><span class="meta">#<span class="meta-keyword">elif</span> defined(USE_JEMALLOC)</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> ZMALLOC_LIB (<span class="meta-string">"jemalloc-"</span> __xstr(JEMALLOC_VERSION_MAJOR) <span class="meta-string">"."</span> __xstr(JEMALLOC_VERSION_MINOR) <span class="meta-string">"."</span> __xstr(JEMALLOC_VERSION_BUGFIX))</span></div><div class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;jemalloc/jemalloc.h&gt;</span></span></div><div class="line"><span class="meta">#<span class="meta-keyword">if</span> (JEMALLOC_VERSION_MAJOR == 2 &amp;&amp; JEMALLOC_VERSION_MINOR &gt;= 1) || (JEMALLOC_VERSION_MAJOR &gt; 2)</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> HAVE_MALLOC_SIZE 1</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> zmalloc_size(p) je_malloc_usable_size(p)</span></div><div class="line"><span class="meta">#<span class="meta-keyword">else</span></span></div><div class="line"><span class="meta">#<span class="meta-keyword">error</span> <span class="meta-string">"Newer version of jemalloc required"</span></span></div><div class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></div><div class="line"><span class="meta">#<span class="meta-keyword">elif</span> defined(__APPLE__)</span></div><div class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;malloc/malloc.h&gt;</span></span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> HAVE_MALLOC_SIZE 1</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> zmalloc_size(p) malloc_size(p)</span></div><div class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></div><div class="line"><span class="meta">#<span class="meta-keyword">if</span> defined(USE_TCMALLOC)</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> malloc(size) tc_malloc(size)</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> calloc(count,size) tc_calloc(count,size)</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> realloc(ptr,size) tc_realloc(ptr,size)</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> free(ptr) tc_free(ptr)</span></div><div class="line"><span class="meta">#<span class="meta-keyword">elif</span> defined(USE_JEMALLOC)</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> malloc(size) je_malloc(size)</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> calloc(count,size) je_calloc(count,size)</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> realloc(ptr,size) je_realloc(ptr,size)</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> free(ptr) je_free(ptr)</span></div><div class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></div></pre></td></tr></table></figure>
+<h3 id="非第三方的内存管理"><a href="#非第三方的内存管理" class="headerlink" title="非第三方的内存管理"></a>非第三方的内存管理</h3><p>在使用标准库提供的内存操作函数时，Redis 会额外多申请 PREFIX_SIZE 定义的大小的空间，用于存储申请空间的大小。同时，每次申请或者更新空间大小时，需要同时更新 used_memory 的值，以 zmalloc 为例：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div></pre></td><td class="code"><pre><div class="line"><span class="meta">#<span class="meta-keyword">define</span> update_zmalloc_stat_alloc(__n) do &#123; \</span></div><div class="line">    size_t _n = (__n); \</div><div class="line">    <span class="meta-keyword">if</span> (_n&amp;(sizeof(long)-1)) _n += sizeof(long)-(_n&amp;(sizeof(long)-1)); \</div><div class="line">    <span class="meta-keyword">if</span> (zmalloc_thread_safe) &#123; \</div><div class="line">        atomicIncr(used_memory,__n,used_memory_mutex); \</div><div class="line">    &#125; <span class="meta-keyword">else</span> &#123; \</div><div class="line">        used_memory += _n; \</div><div class="line">    &#125; \</div><div class="line">&#125; while(0)</div><div class="line"><span class="function"><span class="keyword">void</span> *<span class="title">zmalloc</span><span class="params">(<span class="keyword">size_t</span> size)</span> </span>&#123;</div><div class="line">    <span class="keyword">void</span> *ptr = <span class="built_in">malloc</span>(size+PREFIX_SIZE); <span class="comment">// 申请一个指定大小加上 header 的空间</span></div><div class="line">    <span class="keyword">if</span> (!ptr) zmalloc_oom_handler(size);</div><div class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> HAVE_MALLOC_SIZE</span></div><div class="line">    update_zmalloc_stat_alloc(zmalloc_size(ptr)); <span class="comment">// 计算空间大小</span></div><div class="line">    <span class="keyword">return</span> ptr;</div><div class="line"><span class="meta">#<span class="meta-keyword">else</span></span></div><div class="line">    *((<span class="keyword">size_t</span>*)ptr) = size; <span class="comment">// 自己维护空间的大小</span></div><div class="line">    update_zmalloc_stat_alloc(size+PREFIX_SIZE); <span class="comment">// 计算空间的大小</span></div><div class="line">    <span class="keyword">return</span> (<span class="keyword">char</span>*)ptr+PREFIX_SIZE; <span class="comment">// 返回可以使用的空间的指针</span></div><div class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<h3 id="统计使用的内存数"><a href="#统计使用的内存数" class="headerlink" title="统计使用的内存数"></a>统计使用的内存数</h3><p>Redis 在统计使用的内存数的时候，按照如下的步骤进行尝试：</p>
+<ul>
+<li>如果定义了 PROC_FS，则从 /proc/[getpid()]/stat 中读取</li>
+<li>如果定义了 TASK_INFO，从该进程 id 对应的 task_info_t 结构中读取 resident_size 变量</li>
+<li>直接返回 used_memory</li>
+</ul>
+<p>由于第三方的库在分配内存空间的时候，存在空间碎片，因此，通过操作系统底层的调用函数统计出的内存占用量的数值更为准确，使用这个数值与 used_memory 的比例可以估计内存碎片的情况，而 Redis 也是这么做的：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">float</span> <span class="title">zmalloc_get_fragmentation_ratio</span><span class="params">(<span class="keyword">size_t</span> rss)</span> </span>&#123;</div><div class="line">    <span class="keyword">return</span> (<span class="keyword">float</span>)rss/zmalloc_used_memory();</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Redis/" rel="tag"># Redis</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2016/12/01/redis_object/" rel="next" title="Redis数据结构: 对象">
+                <i class="fa fa-chevron-left"></i> Redis数据结构: 对象
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/06/22/restart/" rel="prev" title="胜败乃兵家常事，少侠请重新来过">
+                胜败乃兵家常事，少侠请重新来过 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/images/avatar.jpg"
+               alt="柿子" />
+          <p class="site-author-name" itemprop="name">柿子</p>
+           
+              <p class="site-description motion-element" itemprop="description">一个非主流程序员</p>
+          
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives/">
+                <span class="site-state-item-count">14</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">4</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">3</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#Redis-的内存管理策略"><span class="nav-number">1.</span> <span class="nav-text">Redis 的内存管理策略</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#第三方的-malloc-库"><span class="nav-number">2.</span> <span class="nav-text">第三方的 malloc 库</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#非第三方的内存管理"><span class="nav-number">3.</span> <span class="nav-text">非第三方的内存管理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#统计使用的内存数"><span class="nav-number">4.</span> <span class="nav-text">统计使用的内存数</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">柿子</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

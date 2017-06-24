@@ -1,0 +1,837 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Ruby on Rails,Garbage Collection," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.1.1" />
+
+
+
+
+
+
+<meta name="description" content="垃圾回收（英语：Garbage Collection，缩写为 GC）是一种自动的内存管理机制。当一个电脑上的动态内存不再需要时，就应该予以释放，以让出内存，这种内存资源管理，称为垃圾回收（garbage collection）。垃圾回收最早起源于 LISP 语言。 基本算法引用计数器 Reference Counting对数据存储的物理空间附加多一个计数器空间，当有其他数据与其相关时则加一，反之相">
+<meta name="keywords" content="Ruby on Rails,Garbage Collection">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ruby 垃圾回收机制的演变过程">
+<meta property="og:url" content="http://yoursite.com/2016/09/04/ruby_garbage_collection/index.html">
+<meta property="og:site_name" content="柿子的果盘">
+<meta property="og:description" content="垃圾回收（英语：Garbage Collection，缩写为 GC）是一种自动的内存管理机制。当一个电脑上的动态内存不再需要时，就应该予以释放，以让出内存，这种内存资源管理，称为垃圾回收（garbage collection）。垃圾回收最早起源于 LISP 语言。 基本算法引用计数器 Reference Counting对数据存储的物理空间附加多一个计数器空间，当有其他数据与其相关时则加一，反之相">
+<meta property="og:image" content="http://ocx5ae9jo.bkt.clouddn.com/reference-counting.jpeg">
+<meta property="og:image" content="http://ocx5ae9jo.bkt.clouddn.com/mark-and-sweep.jpeg">
+<meta property="og:image" content="http://ocx5ae9jo.bkt.clouddn.com/mark-and-copy1.jpeg">
+<meta property="og:image" content="http://ocx5ae9jo.bkt.clouddn.com/mark-and-copy2.jpeg">
+<meta property="og:image" content="http://ocx5ae9jo.bkt.clouddn.com/object-lifecycle.jpeg">
+<meta property="og:image" content="http://ocx5ae9jo.bkt.clouddn.com/ruby-1-8.jpeg">
+<meta property="og:image" content="http://ocx5ae9jo.bkt.clouddn.com/ruby-1-9-3.jpeg">
+<meta property="og:image" content="http://ocx5ae9jo.bkt.clouddn.com/gc_fl_mark.jpeg">
+<meta property="og:image" content="http://ocx5ae9jo.bkt.clouddn.com/ruby-share-memory.jpeg">
+<meta property="og:image" content="http://ocx5ae9jo.bkt.clouddn.com/ruby-share_memory2.jpeg">
+<meta property="og:image" content="http://ocx5ae9jo.bkt.clouddn.com/gc-bitmap1.jpeg">
+<meta property="og:image" content="http://ocx5ae9jo.bkt.clouddn.com/generational-gc1.jpeg">
+<meta property="og:image" content="http://ocx5ae9jo.bkt.clouddn.com/generational-gc2.jpeg">
+<meta property="og:image" content="http://ocx5ae9jo.bkt.clouddn.com/ruby-2-2.jpeg">
+<meta property="og:updated_time" content="2017-06-23T07:24:42.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Ruby 垃圾回收机制的演变过程">
+<meta name="twitter:description" content="垃圾回收（英语：Garbage Collection，缩写为 GC）是一种自动的内存管理机制。当一个电脑上的动态内存不再需要时，就应该予以释放，以让出内存，这种内存资源管理，称为垃圾回收（garbage collection）。垃圾回收最早起源于 LISP 语言。 基本算法引用计数器 Reference Counting对数据存储的物理空间附加多一个计数器空间，当有其他数据与其相关时则加一，反之相">
+<meta name="twitter:image" content="http://ocx5ae9jo.bkt.clouddn.com/reference-counting.jpeg">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post","offset":12,"offset_float":0,"b2t":false,"scrollpercent":false},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2016/09/04/ruby_garbage_collection/"/>
+
+
+
+
+
+  <title>Ruby 垃圾回收机制的演变过程 | 柿子的果盘</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">柿子的果盘</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle">随手记录一些所读、所思、所感</p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2016/09/04/ruby_garbage_collection/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="柿子">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="柿子的果盘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">Ruby 垃圾回收机制的演变过程</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2016-09-04T00:00:00+08:00">
+                2016-09-04
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/开发语言/" itemprop="url" rel="index">
+                    <span itemprop="name">开发语言</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>垃圾回收（英语：Garbage Collection，缩写为 GC）是一种自动的内存管理机制。当一个电脑上的动态内存不再需要时，就应该予以释放，以让出内存，这种内存资源管理，称为垃圾回收（garbage collection）。垃圾回收最早起源于 LISP 语言。</p>
+<h2 id="基本算法"><a href="#基本算法" class="headerlink" title="基本算法"></a>基本算法</h2><h3 id="引用计数器-Reference-Counting"><a href="#引用计数器-Reference-Counting" class="headerlink" title="引用计数器 Reference Counting"></a>引用计数器 Reference Counting</h3><p>对数据存储的物理空间附加多一个计数器空间，当有其他数据与其相关时则加一，反之相关解除时减一，定期检查各储存对象的计数器，为零的话则认为已经被抛弃而将其所占物理空间回收。这是最简单，也是最早在 LISP 实现的垃圾回收方式，其缺点是无法回收循环引用的存储对象。</p>
+<p><img src="http://ocx5ae9jo.bkt.clouddn.com/reference-counting.jpeg" width="300px" height="300px"></p>
+<h3 id="跟踪收集器-Tracing"><a href="#跟踪收集器-Tracing" class="headerlink" title="跟踪收集器 Tracing"></a>跟踪收集器 Tracing</h3><p>注意到，被回收的对象不再被应用程序使用，即从应用程序的根节点出发，沿着引用查找，将不会再查找到这些需要被回收的对象。因此，可以通过定期对若干根储存对象开始遍历，对整个程序所拥有的储存空间查找与之相关的存储对象和没相关的存储对象进行标记，然后将没相关的存储对象所占物理空间回收。根据标记和回收算法实现的不同，可以将这类跟踪收集的垃圾回收算法分为若干类。</p>
+<h3 id="标记-清除-Mark-and-Sweep"><a href="#标记-清除-Mark-and-Sweep" class="headerlink" title="标记-清除 Mark and Sweep"></a>标记-清除 Mark and Sweep</h3><p>先暂停整个程序的全部运行线程（Stop the word），让回收线程以单线程进行扫描标记，并进行直接清除回收，然后回收完成，恢复运行线程。这个算法的缺点是会导致大量零碎的空闲空间碎片，使得大容量对象不容易获得连续的内存空间，而造成空间浪费。</p>
+<p><img src="http://ocx5ae9jo.bkt.clouddn.com/mark-and-sweep.jpeg" width="450px" height="300px"></p>
+<h3 id="标记-复制-Mark-and-Copy"><a href="#标记-复制-Mark-and-Copy" class="headerlink" title="标记-复制 Mark and Copy"></a>标记-复制 Mark and Copy</h3><p>需要程序将所拥有的内存空间分成两个部分。程序运行所需的存储对象先存储在其中一个分区（定义为“分区0”）。同样暂停整个程序的全部运行线程后，进行标记后，回收期间将将保留的存储对象搬运汇集到另一个分区（定义为“分区1”），完成回收，程序在本次回收后将接下来产生的存储对象会存储到“分区1”。在下一次回收时，两个分区的角色对调。</p>
+<p><img src="http://ocx5ae9jo.bkt.clouddn.com/mark-and-copy1.jpeg" width="400px" height="150px"><br><img src="http://ocx5ae9jo.bkt.clouddn.com/mark-and-copy2.jpeg" width="400px" height="150px"></p>
+<h3 id="标记-压缩-Mark-and-Compact"><a href="#标记-压缩-Mark-and-Compact" class="headerlink" title="标记-压缩 Mark and Compact"></a>标记-压缩 Mark and Compact</h3><p>和“标记－清除”相似，不同的是，在回收期间同时会将保留的存储对象搬运汇集到连续的内存空间（例如从小端地址开始），从而集成空闲空间。这样既不会像“标记-清除”那样产生内存碎片，也不会像“标记-复制”那样只能使用一半的空间。</p>
+<h3 id="增量回收-Incremental-Collection"><a href="#增量回收-Incremental-Collection" class="headerlink" title="增量回收 Incremental Collection"></a>增量回收 Incremental Collection</h3><p>使用这种回收机制时，程序会将所拥有的内存空间分成若干分区。程序运行所需的存储对象会分布在这些分区中，每次只对其中一个分区进行回收操作，从而避免程序全部运行线程暂停来进行回收，允许部分线程在不影响回收行为而保持运行，并且降低回收时间，增加程序响应速度。</p>
+<h3 id="分代回收-Generational-Collection"><a href="#分代回收-Generational-Collection" class="headerlink" title="分代回收 Generational Collection"></a>分代回收 Generational Collection</h3><p>不同的储存对象存活的时间差异很大，而不同存活时间的对象回收的特别也不一样：</p>
+<ul>
+<li>存活时间长，大容量的储存对象在“复制”算法上需要耗费更多的移动时间</li>
+<li>存活时间短的储存对象通常在特定的作用域中，且容量小，适合被快速回收</li>
+</ul>
+<p><img src="http://ocx5ae9jo.bkt.clouddn.com/object-lifecycle.jpeg" width="500px" height="250px"></p>
+<p>因此，可以将程序拥有的内存空间划分区域，并标记为年轻代空间和年老代空间。程序运行所需的存储对象会先存放在年轻代分区，年轻代分区会较为频密进行较为激进垃圾回收行为，每次回收完成幸存的存储对象内的寿命计数器加一。当年轻代分区存储对象的寿命计数器达到一定阈值或存储对象的占用空间超过一定阈值时，则被移动到年老代空间，年老代空间会较少运行垃圾回收行为。一般情况下，还有永久代的空间，用于涉及程序整个运行生命周期的对象存储，例如运行代码、数据常量等，该空间通常不进行垃圾回收的操作。</p>
+<h2 id="Ruby-1-8-最基本的“标记-清除”"><a href="#Ruby-1-8-最基本的“标记-清除”" class="headerlink" title="Ruby 1.8 最基本的“标记-清除”"></a>Ruby 1.8 最基本的“标记-清除”</h2><p>Ruby 1.8里实现的就是1960年提出来的那个最简单的“标记-清除”算法，在整个 gc 的过程中，程序运行的所有线程都停机。</p>
+<p><img src="http://ocx5ae9jo.bkt.clouddn.com/ruby-1-8.jpeg" width="600px" height="150px"></p>
+<h2 id="Ruby-1-9-3-Lazy-sweep"><a href="#Ruby-1-9-3-Lazy-sweep" class="headerlink" title="Ruby 1.9.3 Lazy sweep"></a>Ruby 1.9.3 Lazy sweep</h2><p>Ruby 1.9.3实现了增量回收机制的一半，它的基本过程是：</p>
+<ul>
+<li>暂停整个程序的全部运行线程，让回收线程以单线程进行扫描标记</li>
+<li>进行清除回收，直到找到一个可以使用的空间就停止清除回收过程</li>
+</ul>
+<p><img src="http://ocx5ae9jo.bkt.clouddn.com/ruby-1-9-3.jpeg" width="600px" height="100px"></p>
+<h2 id="Ruby-2-0-加入针对-Copy-On-Write-的优化"><a href="#Ruby-2-0-加入针对-Copy-On-Write-的优化" class="headerlink" title="Ruby 2.0 加入针对 Copy-On-Write 的优化"></a>Ruby 2.0 加入针对 Copy-On-Write 的优化</h2><h3 id="Ruby的数据结构和-GC-过程"><a href="#Ruby的数据结构和-GC-过程" class="headerlink" title="Ruby的数据结构和 GC 过程"></a>Ruby的数据结构和 GC 过程</h3><p>我们先来看一下 Ruby 存储 String 的数据结构 RString，可以看到，除了一个指向该 String 具体值的指针以外，还包含了一个特殊的结构——RBasic，它保存了大量的标记位：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div></pre></td><td class="code"><pre><div class="line"><span class="class"><span class="keyword">struct</span> <span class="title">RString</span> &#123;</span></div><div class="line">  <span class="class"><span class="keyword">struct</span> <span class="title">RBasic</span> <span class="title">basic</span>;</span></div><div class="line">  <span class="keyword">union</span> &#123;</div><div class="line">    <span class="class"><span class="keyword">struct</span> &#123;</span></div><div class="line">      <span class="keyword">long</span> len;</div><div class="line">      <span class="keyword">char</span> *ptr;</div><div class="line">      <span class="keyword">union</span> &#123;</div><div class="line">        <span class="keyword">long</span> capa;</div><div class="line">        VALUE shared;</div><div class="line">      &#125; aux;</div><div class="line">    &#125; heap;</div><div class="line">    <span class="keyword">char</span> ary[RSTRING_EMBED_LEN_MAX + <span class="number">1</span>];</div><div class="line">  &#125; as;</div><div class="line">&#125;;</div></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line"> <span class="number">290</span>  <span class="class"><span class="keyword">struct</span> <span class="title">RBasic</span> &#123;</span></div><div class="line"> <span class="number">291</span>      <span class="keyword">unsigned</span> <span class="keyword">long</span> flags;</div><div class="line"> <span class="number">292</span>      VALUE klass;</div><div class="line"> <span class="number">293</span>  &#125;;</div><div class="line"></div><div class="line">(ruby.h)</div></pre></td></tr></table></figure>
+<p>Ruby 程序中还有大量类似的结构，例如 RArray、RHash、RFile等等，它们都是由一些数据和一些标记位组成，统称为 RValue（Ruby Value）。在这些标记位中，有一个特殊的标记位 FL_MARK（包含在RBasic），它用于在 GC 过程中表示该结构是否需要被清除。因此，整个 GC 过程可以描述为：</p>
+<ul>
+<li>检查对象，标记 FL_MARK</li>
+<li>将所有可用的对象放入一个链表中，以待使用</li>
+</ul>
+<p><img src="http://ocx5ae9jo.bkt.clouddn.com/gc_fl_mark.jpeg" with="600px" height="200px"></p>
+<h3 id="Copy-On-Write-机制以及产生的-GC-问题"><a href="#Copy-On-Write-机制以及产生的-GC-问题" class="headerlink" title="Copy-On-Write 机制以及产生的 GC 问题"></a>Copy-On-Write 机制以及产生的 GC 问题</h3><p>众所周知，在基于 Unix 结构的系统中，有一个被称为“Copy-On-Write”的机制：当我们调用 fork 在父进程中创建子进程的时候，此时，子进程共享父进程的所有储存空间，包括数据、变量等等。这样可以使得 fork 命令执行得更快，需要的储存空间更少。当某个子进程需要修改共享的储存空间时，系统才会将这个存储空间进行复制，然后修改对应的数据。而 Ruby 在处理使用的数据结构时，也用了类似的方案，在不同的线程使用相同的数据时，会先使用同一个数据备份，直到其中某个线程需要修改。</p>
+<p><img src="http://ocx5ae9jo.bkt.clouddn.com/ruby-share-memory.jpeg" width="500px" height="500px"></p>
+<p>但是，由此产生了一个 GC 问题，在 GC 的标记阶段，会扫描所有的 RValue 结构，给 FL_MARK 进行赋值，此时对于共享的数据标记位进行的修改引发了拷贝。这样会大大降低 GC 的效率和存储空间的使用效率。</p>
+<p><img src="http://ocx5ae9jo.bkt.clouddn.com/ruby-share_memory2.jpeg" width="500px" height="500px"></p>
+<h3 id="Bitmap-Marking"><a href="#Bitmap-Marking" class="headerlink" title="Bitmap Marking"></a>Bitmap Marking</h3><p>在 Ruby2.0 中，FL_MARK 不在存储在 RValue 结构体中，而是存在 bitmap 中。对于每一个堆，都会有一个对应的 bitmap，用来存储堆中结构体的 FL_MARK 标记位。</p>
+<p><img src="http://ocx5ae9jo.bkt.clouddn.com/gc-bitmap1.jpeg" width="700px" height="180px"></p>
+<p>通过这样的方式，优化了 Copy-On-Write 机制对于 GC 过程的影响，提高了空间的使用率和 GC 的时间复杂度。</p>
+<h2 id="Ruby-2-1-Generational-GC"><a href="#Ruby-2-1-Generational-GC" class="headerlink" title="Ruby 2.1 Generational GC"></a>Ruby 2.1 Generational GC</h2><h3 id="基本实现"><a href="#基本实现" class="headerlink" title="基本实现"></a>基本实现</h3><p>Ruby2.1 引入了分代回收的机制，它将 Object 分成 Yong 和 Mature 两类。新建的 Object 都是 Yong Object，当发生若干次垃圾回收（默认3次）以后，留存下来的 Object 都会变成 Mature Object。在每次发生 minior GC 时，只有 Yong Object 会被回收，而 Mature Object 只会在 full GC 中被回收。</p>
+<p><img src="http://ocx5ae9jo.bkt.clouddn.com/generational-gc1.jpeg" width="400px" height="300px"></p>
+<p>注意，在 Ruby2.1 中实现的分代回收并没有真的将物理内存分为 Yong Object 和 Mature Object 两个区域，而是在实现的时候通过一些标记位（oldgen bits）和算法来保证被标记成 Mature Object 的结构不会再被 Mark and Swap。</p>
+<h3 id="Write-Barriers"><a href="#Write-Barriers" class="headerlink" title="Write Barriers"></a>Write Barriers</h3><p>在上面的实现中，遗留了如下一个问题：当一个新对象被创建以后，并被关联到一个 Mature Object上，这时候发生了 GC，这个对象是否被回收？</p>
+<p><img src="http://ocx5ae9jo.bkt.clouddn.com/generational-gc2.jpeg" width="400px" height="300px"></p>
+<p>为了解决这个问题，Ruby2.1 使用了一种称为 Write Barriers 的技术。它监控所有的 Mature Object，一旦发生从 Mature Object 到 Yong Object 的引用，则会对这些 Mature Object 进行记录，并在下次的 Mark and Sweep 中使用。事实上，为了支持 用 C 编写的扩展，Ruby2.1 对 Write Barriers的实现比较复杂，并非所有堆中的对象都被保护，而这些没有被保护的对象将不会被提升为 Muture Object，例如 Proc、Ruby::Env等，而被 C 编写的扩展访问的对象也是不安全的，也不会被提升。这些对象使用 remembered set 来加速GC。</p>
+<h2 id="Ruby-2-2-Incremental-GC-amp-Symbol-GC"><a href="#Ruby-2-2-Incremental-GC-amp-Symbol-GC" class="headerlink" title="Ruby 2.2 Incremental GC &amp; Symbol GC"></a>Ruby 2.2 Incremental GC &amp; Symbol GC</h2><h3 id="Incremental-GC"><a href="#Incremental-GC" class="headerlink" title="Incremental GC"></a>Incremental GC</h3><p>首先，先介绍三个术语：</p>
+<ul>
+<li>white object：没有被标记过的 object</li>
+<li>grey object：被标记过 object，且引用了 white object</li>
+<li>black object：被标记过 object，且没有引用任何 white object</li>
+</ul>
+<p>使用上述的术语，Mark and Sweep 的过程可以描述为：</p>
+<ul>
+<li>将所有的 object 标记为 white object；</li>
+<li>将程序使用的 object 标记为 gray object；</li>
+<li>选择一个 gray object，将它引用的所有的 white object 标记为 gray，而将这个 gray object 标记为 black，重复这个过程，直到所有的 object 都不是 gray object；</li>
+<li>回收所有的 white object。</li>
+</ul>
+<p>如果将上述的 Mark 过程变为增量式的，那么会面临一个问题：在增量 Mark 的过程中，随着程序的执行，一些 black object 会产生对 white object 的引用，而这样与 black object 的定义产生冲突。为了解决这个问题，我们还是使用 Write Barriers 技术。当产生从 black object 到 white object 的引用时，这个 black object 将会自动地被变为 gray object。注意到，由于一些 object 没有办法使用 Write Barriers 进行保护，因此需要对这些 object 进行特殊处理。上述的 Mark and Sweep 过程调整为：</p>
+<ul>
+<li>将所有的 object 标记为 white object；</li>
+<li>将程序使用的 object 标记为 gray object；</li>
+<li>选择一个 gray object，将它引用的所有的 white object 标记为 gray，而将这个 gray object 标记为 black，重复这个过程，直到所有的 object 都不是 gray object，这个过程增量式地进行；</li>
+<li>遍历所有没有被 Write Barriers 保护的 object，判断它们是否需要被回收；</li>
+<li>回收所有的 white object。</li>
+</ul>
+<p><img src="http://ocx5ae9jo.bkt.clouddn.com/ruby-2-2.jpeg" width="800px" height="150px"></p>
+<h3 id="Symbol-GC"><a href="#Symbol-GC" class="headerlink" title="Symbol GC"></a>Symbol GC</h3><p>在 Ruby2.2 以前，程序中的 symbol 是不会被 GC 的，例如：</p>
+<figure class="highlight ruby"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line">before = Symbol.all_symbols.size</div><div class="line"><span class="number">100_000</span>.times <span class="keyword">do</span> <span class="params">|i|</span></div><div class="line">  <span class="string">"sym<span class="subst">#&#123;i&#125;</span>"</span>.to_sym</div><div class="line"><span class="keyword">end</span></div><div class="line">GC.start</div><div class="line">after = Symbol.all_symbols.size</div><div class="line">puts after - before</div><div class="line"><span class="comment"># =&gt; 100001</span></div></pre></td></tr></table></figure>
+<p>而如果我们直接对 url 的参数调用 to_sym 获取 symbol，则会导致”symbol DoS”。</p>
+<figure class="highlight ruby"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">show</span></span></div><div class="line">  step = params[<span class="symbol">:step</span>].to_sym</div><div class="line"><span class="keyword">end</span></div></pre></td></tr></table></figure>
+<p>为了支持用 C 编写的拓展，在 Ruby2.2 以前，所有的 symbol 对应一个唯一的 objectID，而由于rb_intern的实现方式，这个 objectID 必须在整个程序的生命周期里保持一致。在 C-Ruby 里创建一个方法时，会同时在方法表中添加一个唯一的 ID 来对应这个方法。在随后的调用过程中，会到方法列表中去寻找 ID 对应的静态内存，如果对应到这个方法的 symbol 被 GC 回收掉，则这个方法就再也不会被调用。<br>在 Ruby2.2 中，将所有的 symbol 分为两类：</p>
+<p>在 Ruby 运行过程中动态创建的 symbol（例如通过to_sym创建的），这类的 symbol 将会被 GC<br>在 Ruby 解释器里生成的 symbol，或程序里静态的 symbol，这些将不会被 GC<br>但是，需要注意两点：</p>
+<ul>
+<li>这样做依然存在一些风险，例如在代码中使用 define_method 来定义函数（它将会调用rb_intern），则这个 symbol 将会被识别为第一类 symbol，从而被 GC</li>
+</ul>
+<figure class="highlight ruby"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">define_method(params[<span class="symbol">:step</span>].to_sym) <span class="keyword">do</span></div><div class="line">  <span class="comment"># ...</span></div><div class="line"><span class="keyword">end</span></div></pre></td></tr></table></figure>
+<ul>
+<li>将 symbol 转化为 string 会耗费大量的时间</li>
+</ul>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ul>
+<li><a href="http://www.infoq.com/news/2011/08/ruby193-gc" target="_blank" rel="external">Ruby 1.9.3 Preview 1 Released, Improves GC Pauses With Lazy Sweep GC</a></li>
+<li><a href="http://patshaughnessy.net/2012/1/4/never-create-ruby-strings-longer-than-23-characters" target="_blank" rel="external">Never create Ruby strings longer than 23 characters</a></li>
+<li><a href="https://ruby-hacking-guide.github.io/object.html" target="_blank" rel="external">Ruby Hacking Guide Chapter 2: Objects</a></li>
+<li><a href="http://patshaughnessy.net/2012/3/23/why-you-should-be-excited-about-garbage-collection-in-ruby-2-0" target="_blank" rel="external">Why You Should Be Excited About Garbage Collection in Ruby 2.0</a></li>
+<li><a href="http://tmm1.net/ruby21-rgengc/" target="_blank" rel="external">Ruby 2.1: RGenGC</a></li>
+<li><a href="http://patshaughnessy.net/2013/10/30/generational-gc-in-python-and-ruby" target="_blank" rel="external">Generational GC in Python and Ruby</a></li>
+<li><a href="https://engineering.heroku.com/blogs/2015-02-04-incremental-gc/" target="_blank" rel="external">Incremental Garbage Collection in Ruby 2.2</a></li>
+<li><a href="https://www.sitepoint.com/symbol-gc-ruby-2-2/" target="_blank" rel="external">Symbol GC in Ruby 2.2</a></li>
+</ul>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Ruby-on-Rails/" rel="tag"># Ruby on Rails</a>
+          
+            <a href="/tags/Garbage-Collection/" rel="tag"># Garbage Collection</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2016/09/03/mina_deploy/" rel="next" title="Mina自动化部署">
+                <i class="fa fa-chevron-left"></i> Mina自动化部署
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2016/10/11/redis_data_structure_summary/" rel="prev" title="Redis数据结构: 综述">
+                Redis数据结构: 综述 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/images/avatar.jpg"
+               alt="柿子" />
+          <p class="site-author-name" itemprop="name">柿子</p>
+           
+              <p class="site-description motion-element" itemprop="description">一个非主流程序员</p>
+          
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives/">
+                <span class="site-state-item-count">14</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">4</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">3</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#基本算法"><span class="nav-number">1.</span> <span class="nav-text">基本算法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#引用计数器-Reference-Counting"><span class="nav-number">1.1.</span> <span class="nav-text">引用计数器 Reference Counting</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#跟踪收集器-Tracing"><span class="nav-number">1.2.</span> <span class="nav-text">跟踪收集器 Tracing</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#标记-清除-Mark-and-Sweep"><span class="nav-number">1.3.</span> <span class="nav-text">标记-清除 Mark and Sweep</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#标记-复制-Mark-and-Copy"><span class="nav-number">1.4.</span> <span class="nav-text">标记-复制 Mark and Copy</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#标记-压缩-Mark-and-Compact"><span class="nav-number">1.5.</span> <span class="nav-text">标记-压缩 Mark and Compact</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#增量回收-Incremental-Collection"><span class="nav-number">1.6.</span> <span class="nav-text">增量回收 Incremental Collection</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#分代回收-Generational-Collection"><span class="nav-number">1.7.</span> <span class="nav-text">分代回收 Generational Collection</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Ruby-1-8-最基本的“标记-清除”"><span class="nav-number">2.</span> <span class="nav-text">Ruby 1.8 最基本的“标记-清除”</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Ruby-1-9-3-Lazy-sweep"><span class="nav-number">3.</span> <span class="nav-text">Ruby 1.9.3 Lazy sweep</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Ruby-2-0-加入针对-Copy-On-Write-的优化"><span class="nav-number">4.</span> <span class="nav-text">Ruby 2.0 加入针对 Copy-On-Write 的优化</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Ruby的数据结构和-GC-过程"><span class="nav-number">4.1.</span> <span class="nav-text">Ruby的数据结构和 GC 过程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Copy-On-Write-机制以及产生的-GC-问题"><span class="nav-number">4.2.</span> <span class="nav-text">Copy-On-Write 机制以及产生的 GC 问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Bitmap-Marking"><span class="nav-number">4.3.</span> <span class="nav-text">Bitmap Marking</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Ruby-2-1-Generational-GC"><span class="nav-number">5.</span> <span class="nav-text">Ruby 2.1 Generational GC</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#基本实现"><span class="nav-number">5.1.</span> <span class="nav-text">基本实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Write-Barriers"><span class="nav-number">5.2.</span> <span class="nav-text">Write Barriers</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Ruby-2-2-Incremental-GC-amp-Symbol-GC"><span class="nav-number">6.</span> <span class="nav-text">Ruby 2.2 Incremental GC & Symbol GC</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Incremental-GC"><span class="nav-number">6.1.</span> <span class="nav-text">Incremental GC</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Symbol-GC"><span class="nav-number">6.2.</span> <span class="nav-text">Symbol GC</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考资料"><span class="nav-number">7.</span> <span class="nav-text">参考资料</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">柿子</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

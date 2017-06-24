@@ -1,0 +1,783 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Redis," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.1.1" />
+
+
+
+
+
+
+<meta name="description" content="Redis 是用 C 语言编写的，而 C 语言用空字符（’\0’）结尾的字符数组表示字符串的方式又备受诟病。因此，Redis 的作者自己设计了一个新的结构，命名为简单动态字符串（Simple Dynamic String, SDS）。在 Redis 内部绝大部分需要使用字符串的地方，使用的都是 SDS，除了一些不需要改变的字面量以外，例如打印日志。 Redis 是一个 key-value 类型的数">
+<meta name="keywords" content="Redis">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Redis数据结构: 简单动态字符串">
+<meta property="og:url" content="http://yoursite.com/2016/10/14/redis_sds/index.html">
+<meta property="og:site_name" content="柿子的果盘">
+<meta property="og:description" content="Redis 是用 C 语言编写的，而 C 语言用空字符（’\0’）结尾的字符数组表示字符串的方式又备受诟病。因此，Redis 的作者自己设计了一个新的结构，命名为简单动态字符串（Simple Dynamic String, SDS）。在 Redis 内部绝大部分需要使用字符串的地方，使用的都是 SDS，除了一些不需要改变的字面量以外，例如打印日志。 Redis 是一个 key-value 类型的数">
+<meta property="og:updated_time" content="2017-06-23T07:43:53.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Redis数据结构: 简单动态字符串">
+<meta name="twitter:description" content="Redis 是用 C 语言编写的，而 C 语言用空字符（’\0’）结尾的字符数组表示字符串的方式又备受诟病。因此，Redis 的作者自己设计了一个新的结构，命名为简单动态字符串（Simple Dynamic String, SDS）。在 Redis 内部绝大部分需要使用字符串的地方，使用的都是 SDS，除了一些不需要改变的字面量以外，例如打印日志。 Redis 是一个 key-value 类型的数">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post","offset":12,"offset_float":0,"b2t":false,"scrollpercent":false},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2016/10/14/redis_sds/"/>
+
+
+
+
+
+  <title>Redis数据结构: 简单动态字符串 | 柿子的果盘</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">柿子的果盘</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle">随手记录一些所读、所思、所感</p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2016/10/14/redis_sds/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="柿子">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="柿子的果盘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">Redis数据结构: 简单动态字符串</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2016-10-14T00:00:00+08:00">
+                2016-10-14
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/开源项目/" itemprop="url" rel="index">
+                    <span itemprop="name">开源项目</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>Redis 是用 C 语言编写的，而 C 语言用空字符（’\0’）结尾的字符数组表示字符串的方式又备受诟病。因此，Redis 的作者自己设计了一个新的结构，命名为简单动态字符串（Simple Dynamic String, SDS）。在 Redis 内部绝大部分需要使用字符串的地方，使用的都是 SDS，除了一些不需要改变的字面量以外，例如打印日志。</p>
+<p>Redis 是一个 key-value 类型的数据库，所有的 key 都是字符串。而在 Redis 的各种操作中，会频繁地使用字符串的长度查询和增加字符两种操作。对于原生的 C 字符串而言，长度查询的时间复杂度是 O(N)，而多次的 append 操作则需要频繁地调用 malloc 和 realloc 操作，这些操作的耗时较多。因此，优化这两个操作势在必行。此外，为了在客户端和服务器之间传输，并且可以保存除了文本数据以外的数据格式，因此字符串必须是二进制安全的。这些就是设计 SDS 要考虑的基本因素。由于在具体实现的过程中，使用了一些关于 C 语言的特性，因此我们对照着源代码进行解释。</p>
+<h3 id="SDS-结构"><a href="#SDS-结构" class="headerlink" title="SDS 结构"></a>SDS 结构</h3><p>在 sds.h 中可以看到 SDS 的定义，我们可以看到 sds 对应的是字符串数组（与 C 字符串定义一致）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">typedef</span> <span class="keyword">char</span> *sds;</div></pre></td></tr></table></figure>
+<p>其后定义了五个 struct（sdshdr5、sdshdr8、sdshdr16、sdshdr32、sdshdr64），它们的结构一样（除了 sdshdr5 以外），包含了四个对应的属性，分别是：</p>
+<ul>
+<li>len：SDS 保存的字符串的实际长度，不包含最后的空字符</li>
+<li>alloc：SDS 用于保存字符串的所有空间的大小，不包括空字符以及 header</li>
+<li>flags：低 3 位用于保存字符串对应的 struct，高 5 位只有 sdshdr5 用于保存字符串长度，其它的 struct 没有用到</li>
+<li>buf：指向保存的字符串的指针，上面定义的 sds 实际上就是这里的 buf</li>
+</ul>
+<p>上述除了 buf 以外的三个字段组成了 SDS 的 header，保存了除了字符串内容以外的信息，用于快速实现一些操作，提高字符串操作的效率。<br>注意：sdshdr5 的结构有所不同，它没有 len 和 alloc 两个字段，字符串长度保存在 flags 的高 5 位中，所以最大的值为 31 ，这样的字符串适合于保存较短的不可变字符串。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div></pre></td><td class="code"><pre><div class="line"><span class="class"><span class="keyword">struct</span> __<span class="title">attribute__</span> ((__<span class="title">packed__</span>)) <span class="title">sdshdr5</span> &#123;</span></div><div class="line">    <span class="keyword">unsigned</span> <span class="keyword">char</span> flags; <span class="comment">/* 3 lsb of type, and 5 msb of string length */</span></div><div class="line">    <span class="keyword">char</span> buf[];</div><div class="line">&#125;;</div><div class="line"><span class="class"><span class="keyword">struct</span> __<span class="title">attribute__</span> ((__<span class="title">packed__</span>)) <span class="title">sdshdr8</span> &#123;</span></div><div class="line">    <span class="keyword">uint8_t</span> len; <span class="comment">/* used */</span></div><div class="line">    <span class="keyword">uint8_t</span> alloc; <span class="comment">/* excluding the header and null terminator */</span></div><div class="line">    <span class="keyword">unsigned</span> <span class="keyword">char</span> flags; <span class="comment">/* 3 lsb of type, 5 unused bits */</span></div><div class="line">    <span class="keyword">char</span> buf[];</div><div class="line">&#125;;</div><div class="line"><span class="class"><span class="keyword">struct</span> __<span class="title">attribute__</span> ((__<span class="title">packed__</span>)) <span class="title">sdshdr16</span> &#123;</span></div><div class="line">    <span class="keyword">uint16_t</span> len; <span class="comment">/* used */</span></div><div class="line">    <span class="keyword">uint16_t</span> alloc; <span class="comment">/* excluding the header and null terminator */</span></div><div class="line">    <span class="keyword">unsigned</span> <span class="keyword">char</span> flags; <span class="comment">/* 3 lsb of type, 5 unused bits */</span></div><div class="line">    <span class="keyword">char</span> buf[];</div><div class="line">&#125;;</div><div class="line"><span class="class"><span class="keyword">struct</span> __<span class="title">attribute__</span> ((__<span class="title">packed__</span>)) <span class="title">sdshdr32</span> &#123;</span></div><div class="line">    <span class="keyword">uint32_t</span> len; <span class="comment">/* used */</span></div><div class="line">    <span class="keyword">uint32_t</span> alloc; <span class="comment">/* excluding the header and null terminator */</span></div><div class="line">    <span class="keyword">unsigned</span> <span class="keyword">char</span> flags; <span class="comment">/* 3 lsb of type, 5 unused bits */</span></div><div class="line">    <span class="keyword">char</span> buf[];</div><div class="line">&#125;;</div><div class="line"><span class="class"><span class="keyword">struct</span> __<span class="title">attribute__</span> ((__<span class="title">packed__</span>)) <span class="title">sdshdr64</span> &#123;</span></div><div class="line">    <span class="keyword">uint64_t</span> len; <span class="comment">/* used */</span></div><div class="line">    <span class="keyword">uint64_t</span> alloc; <span class="comment">/* excluding the header and null terminator */</span></div><div class="line">    <span class="keyword">unsigned</span> <span class="keyword">char</span> flags; <span class="comment">/* 3 lsb of type, 5 unused bits */</span></div><div class="line">    <span class="keyword">char</span> buf[];</div><div class="line">&#125;;</div></pre></td></tr></table></figure>
+<p>与 flags 相关的常量如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/* sds 的类型常量，类型存于 flags 的最低 3 位 */</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> SDS_TYPE_5  0</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> SDS_TYPE_8  1</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> SDS_TYPE_16 2</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> SDS_TYPE_32 3</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> SDS_TYPE_64 4</span></div><div class="line"><span class="comment">/* SDS_TYPE_MASK 用来与 flags 配合，获得 sds 的类型，注意 7 的二进制表示是 111，与它进行 &amp; 操作以后能获得最低 3 位的值 */</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> SDS_TYPE_MASK 7</span></div><div class="line"><span class="comment">/* 与 sdshdr5 配合使用，flags 的最低 3 位存储类型，高位用于长度 */</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> SDS_TYPE_BITS 3</span></div></pre></td></tr></table></figure>
+<h3 id="使用的-C-语言特性"><a href="#使用的-C-语言特性" class="headerlink" title="使用的 C 语言特性"></a>使用的 C 语言特性</h3><p>在上述 sdshdr 的定义中，用到了 C 语言的几个特性，从而使 SDS 变得比 C 字符串更加灵活：</p>
+<ul>
+<li>柔性数组（flexible array member）：sdshdr 的 buf 属性并没有指明数组的尺寸，被称为柔性数组，它只是作为一个标记存在在 struct 中，在 sizeof 操作的时候并不计入</li>
+<li>Struct Hack：Struct 中有且仅有一个变长的字段，且该字段是 Struct 中最后的一个字段，这样在分配空间的时候，可以直接给这个变长字段分配空间，使得该变长字段的内容和 struct 中其它的字段放在连续的空间中，直接通过该变长变量的指针就可以获得其它的字段。在 sdshdr 的定义中，使用了 Struct Hack，使得只要知道 buf 字段的起始位置指针，就可以推导获得 header 字段的起始位置指针</li>
+<li>attribute ((packed))：它的作用就是告诉编译器取消结构在编译过程中的优化对齐，按照实际占用字节数进行对齐，是 GCC 特有的语法。这个功能是跟操作系统没关系，跟编译器有关，GCC 编译器不是紧凑模式的。在 Windows 下，用 VC 的编译器也不是紧凑的，用 TC 的编译器就是紧凑的。例如：<ul>
+<li>在 TC 下：struct my{ char ch; int a;} sizeof(int) = 2; sizeof(my) = 3;（紧凑模式）</li>
+<li>在 GCC 下：struct my{ char ch; int a;} sizeof(int) = 4; sizeof(my) = 8;（非紧凑模式）</li>
+<li>在 GCC 下：struct my{ char ch; int a;}attrubte ((packed)) sizeof(int) = 4; sizeof(my) = 5;（紧凑模式）</li>
+</ul>
+</li>
+</ul>
+<p>从上述的解释中，我们可以得知 SDS 设计的主要内容：</p>
+<ul>
+<li>通过使用 Struct Hack，我们可以将 SDS 的 header 和对应的字符串分配在连续的空间中，然后仅通过字符串指针就可以找到对应的 header</li>
+<li>在使用的过程中，直接使用 sds 类型，这个与 C 字符串的使用无异，可以方便的使用 str 的各种库函数，需要 header 的信息的时候，使用额外的操作，找到对应的辅助信息</li>
+</ul>
+<h3 id="获取-header-的操作"><a href="#获取-header-的操作" class="headerlink" title="获取 header 的操作"></a>获取 header 的操作</h3><p>由于不同的 sdshdr struct 存储 len 和 alloc 的变量类型不同，所以需要先获取类型的信息，而类型存储在 flags 中的第三位，flags 又固定存储在字符串第一个字符的前一个字节，因此，通过 s[-1] &amp; SDS_TYPE_MASK 就可以获得类型的信息，而后通过指针减去 header 的 size，就可以获得 header 的指针，具体如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="meta">#<span class="meta-keyword">define</span> SDS_HDR(T,s) ((struct sdshdr##T *)((s)-(sizeof(struct sdshdr##T))))</span></div></pre></td></tr></table></figure>
+<p>在获得 header 的指针以后，就得到了对应的 struct，就可以取出对应的字段，以 len 为例：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">inline</span> size_t <span class="title">sdslen</span><span class="params">(<span class="keyword">const</span> sds s)</span> </span>&#123;</div><div class="line">    <span class="keyword">unsigned</span> <span class="keyword">char</span> flags = s[<span class="number">-1</span>];</div><div class="line">    <span class="keyword">switch</span>(flags&amp;SDS_TYPE_MASK) &#123;</div><div class="line">        <span class="keyword">case</span> SDS_TYPE_5:</div><div class="line">            <span class="keyword">return</span> SDS_TYPE_5_LEN(flags);</div><div class="line">        <span class="keyword">case</span> SDS_TYPE_8:</div><div class="line">            <span class="keyword">return</span> SDS_HDR(<span class="number">8</span>,s)-&gt;len;</div><div class="line">        <span class="keyword">case</span> SDS_TYPE_16:</div><div class="line">            <span class="keyword">return</span> SDS_HDR(<span class="number">16</span>,s)-&gt;len;</div><div class="line">        <span class="keyword">case</span> SDS_TYPE_32:</div><div class="line">            <span class="keyword">return</span> SDS_HDR(<span class="number">32</span>,s)-&gt;len;</div><div class="line">        <span class="keyword">case</span> SDS_TYPE_64:</div><div class="line">            <span class="keyword">return</span> SDS_HDR(<span class="number">64</span>,s)-&gt;len;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> <span class="number">0</span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<h3 id="创建与销毁"><a href="#创建与销毁" class="headerlink" title="创建与销毁"></a>创建与销毁</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div><div class="line">92</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">inline</span> <span class="keyword">char</span> <span class="title">sdsReqType</span><span class="params">(<span class="keyword">size_t</span> string_size)</span> </span>&#123;</div><div class="line">    <span class="keyword">if</span> (string_size &lt; <span class="number">1</span>&lt;&lt;<span class="number">5</span>)</div><div class="line">        <span class="keyword">return</span> SDS_TYPE_5;</div><div class="line">    <span class="keyword">if</span> (string_size &lt; <span class="number">1</span>&lt;&lt;<span class="number">8</span>)</div><div class="line">        <span class="keyword">return</span> SDS_TYPE_8;</div><div class="line">    <span class="keyword">if</span> (string_size &lt; <span class="number">1</span>&lt;&lt;<span class="number">16</span>)</div><div class="line">        <span class="keyword">return</span> SDS_TYPE_16;</div><div class="line"><span class="meta">#<span class="meta-keyword">if</span> (LONG_MAX == LLONG_MAX)</span></div><div class="line">    <span class="keyword">if</span> (string_size &lt; <span class="number">1l</span>l&lt;&lt;<span class="number">32</span>)</div><div class="line">        <span class="keyword">return</span> SDS_TYPE_32;</div><div class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></div><div class="line">    <span class="keyword">return</span> SDS_TYPE_64;</div><div class="line">&#125;</div><div class="line"><span class="function">sds <span class="title">sdsnewlen</span><span class="params">(<span class="keyword">const</span> <span class="keyword">void</span> *init, <span class="keyword">size_t</span> initlen)</span> </span>&#123;</div><div class="line">    <span class="keyword">void</span> *sh;</div><div class="line">    sds s;</div><div class="line">    <span class="keyword">char</span> type = sdsReqType(initlen);</div><div class="line">    <span class="comment">/* Empty strings are usually created in order to append. Use type 8</span></div><div class="line">     * since type 5 is not good at this.</div><div class="line">     * 如果是空字符串，则使用 SDS_TYPE_8</div><div class="line">     */</div><div class="line">    <span class="keyword">if</span> (type == SDS_TYPE_5 &amp;&amp; initlen == <span class="number">0</span>) type = SDS_TYPE_8;</div><div class="line">    <span class="keyword">int</span> hdrlen = sdsHdrSize(type);</div><div class="line">    <span class="keyword">unsigned</span> <span class="keyword">char</span> *fp; <span class="comment">/* flags pointer. */</span></div><div class="line">    <span class="comment">// 使用 Struct Hack，同时分配 header 和 buf 的空间，最后加上的 1 是给空字符留的空间</span></div><div class="line">    sh = s_malloc(hdrlen+initlen+<span class="number">1</span>);</div><div class="line">    <span class="keyword">if</span> (!init)</div><div class="line">        <span class="built_in">memset</span>(sh, <span class="number">0</span>, hdrlen+initlen+<span class="number">1</span>);</div><div class="line">    <span class="keyword">if</span> (sh == <span class="literal">NULL</span>) <span class="keyword">return</span> <span class="literal">NULL</span>;</div><div class="line"></div><div class="line">    <span class="comment">// 找到 buf 的起始位置，以及 flags 的位置</span></div><div class="line">    s = (<span class="keyword">char</span>*)sh+hdrlen;</div><div class="line">    fp = ((<span class="keyword">unsigned</span> <span class="keyword">char</span>*)s)<span class="number">-1</span>;</div><div class="line">    <span class="comment">// 设置 header</span></div><div class="line">    <span class="keyword">switch</span>(type) &#123;</div><div class="line">        <span class="keyword">case</span> SDS_TYPE_5: &#123;</div><div class="line">            *fp = type | (initlen &lt;&lt; SDS_TYPE_BITS);</div><div class="line">            <span class="keyword">break</span>;</div><div class="line">        &#125;</div><div class="line">        <span class="keyword">case</span> SDS_TYPE_8: &#123;</div><div class="line">            SDS_HDR_VAR(<span class="number">8</span>,s);</div><div class="line">            sh-&gt;len = initlen;</div><div class="line">            sh-&gt;alloc = initlen;</div><div class="line">            *fp = type;</div><div class="line">            <span class="keyword">break</span>;</div><div class="line">        &#125;</div><div class="line">        <span class="keyword">case</span> SDS_TYPE_16: &#123;</div><div class="line">            SDS_HDR_VAR(<span class="number">16</span>,s);</div><div class="line">            sh-&gt;len = initlen;</div><div class="line">            sh-&gt;alloc = initlen;</div><div class="line">            *fp = type;</div><div class="line">            <span class="keyword">break</span>;</div><div class="line">        &#125;</div><div class="line">        <span class="keyword">case</span> SDS_TYPE_32: &#123;</div><div class="line">            SDS_HDR_VAR(<span class="number">32</span>,s);</div><div class="line">            sh-&gt;len = initlen;</div><div class="line">            sh-&gt;alloc = initlen;</div><div class="line">            *fp = type;</div><div class="line">            <span class="keyword">break</span>;</div><div class="line">        &#125;</div><div class="line">        <span class="keyword">case</span> SDS_TYPE_64: &#123;</div><div class="line">            SDS_HDR_VAR(<span class="number">64</span>,s);</div><div class="line">            sh-&gt;len = initlen;</div><div class="line">            sh-&gt;alloc = initlen;</div><div class="line">            *fp = type;</div><div class="line">            <span class="keyword">break</span>;</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="comment">// 拷贝存储在 init 中的字符串</span></div><div class="line">    <span class="keyword">if</span> (initlen &amp;&amp; init)</div><div class="line">        <span class="built_in">memcpy</span>(s, init, initlen);</div><div class="line"></div><div class="line">    <span class="comment">// 在最后加上 空字符</span></div><div class="line">    s[initlen] = <span class="string">'\0'</span>;</div><div class="line">    <span class="comment">// 返回 buf 的指针</span></div><div class="line">    <span class="keyword">return</span> s;</div><div class="line">&#125;</div><div class="line"><span class="function">sds <span class="title">sdsempty</span><span class="params">(<span class="keyword">void</span>)</span> </span>&#123;</div><div class="line">    <span class="keyword">return</span> sdsnewlen(<span class="string">""</span>,<span class="number">0</span>);</div><div class="line">&#125;</div><div class="line"><span class="function">sds <span class="title">sdsnew</span><span class="params">(<span class="keyword">const</span> <span class="keyword">char</span> *init)</span> </span>&#123;</div><div class="line">    <span class="keyword">size_t</span> initlen = (init == <span class="literal">NULL</span>) ? <span class="number">0</span> : <span class="built_in">strlen</span>(init);</div><div class="line">    <span class="keyword">return</span> sdsnewlen(init, initlen);</div><div class="line">&#125;</div><div class="line"><span class="function">sds <span class="title">sdsdup</span><span class="params">(<span class="keyword">const</span> sds s)</span> </span>&#123;</div><div class="line">    <span class="keyword">return</span> sdsnewlen(s, sdslen(s));</div><div class="line">&#125;</div><div class="line"><span class="function"><span class="keyword">void</span> <span class="title">sdsfree</span><span class="params">(sds s)</span> </span>&#123;</div><div class="line">    <span class="keyword">if</span> (s == <span class="literal">NULL</span>) <span class="keyword">return</span>;</div><div class="line">    s_free((<span class="keyword">char</span>*)s-sdsHdrSize(s[<span class="number">-1</span>]));</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>无论是何种方式进行创建，底层都是通过调用 sdsnewlen 函数来完成的，值得注意的是：</p>
+<ul>
+<li>通过对于初始字符串的长度判断，可以获得对应的 struct 类型，这个是创建 SDS header 的基础</li>
+<li>若是空字符串，将使用 sdshdr8 而不是 sdshdr5 来进行创建，因为 sdshdr5 里没有活动的可用空间，不利于后续的拓展</li>
+<li>与 C 字符串一样，SDS 会在创建的新字符串的末尾自动地添加空字符（’\0’）</li>
+</ul>
+<p>由于添加了空字符，因此，SDS 在将字符串进行截短或者是清除的时候，只需要调整 header 中的信息以及空字符的位置，而不用处理原先字符串的内容：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">void</span> <span class="title">sdsclear</span><span class="params">(sds s)</span> </span>&#123;</div><div class="line">    sdssetlen(s, <span class="number">0</span>);</div><div class="line">    s[<span class="number">0</span>] = <span class="string">'\0'</span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<h3 id="连接（追加）字符串操作"><a href="#连接（追加）字符串操作" class="headerlink" title="连接（追加）字符串操作"></a>连接（追加）字符串操作</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div></pre></td><td class="code"><pre><div class="line"><span class="function">sds <span class="title">sdsMakeRoomFor</span><span class="params">(sds s, <span class="keyword">size_t</span> addlen)</span> </span>&#123;</div><div class="line">    <span class="keyword">void</span> *sh, *newsh;</div><div class="line">    <span class="keyword">size_t</span> avail = sdsavail(s);</div><div class="line">    <span class="keyword">size_t</span> len, newlen;</div><div class="line">    <span class="keyword">char</span> type, oldtype = s[<span class="number">-1</span>] &amp; SDS_TYPE_MASK;</div><div class="line">    <span class="keyword">int</span> hdrlen;</div><div class="line">    <span class="comment">/* Return ASAP if there is enough space left.</span></div><div class="line">     * 如果已经有足够空间了，直接返回</div><div class="line">     */</div><div class="line">    <span class="keyword">if</span> (avail &gt;= addlen) <span class="keyword">return</span> s;</div><div class="line">    len = sdslen(s);</div><div class="line">    sh = (<span class="keyword">char</span>*)s-sdsHdrSize(oldtype);</div><div class="line">    <span class="comment">// 设定新的长度，以及对应的类型</span></div><div class="line">    newlen = (len+addlen);</div><div class="line">    <span class="keyword">if</span> (newlen &lt; SDS_MAX_PREALLOC)</div><div class="line">        newlen *= <span class="number">2</span>;</div><div class="line">    <span class="keyword">else</span></div><div class="line">        newlen += SDS_MAX_PREALLOC;</div><div class="line">    type = sdsReqType(newlen);</div><div class="line">    <span class="comment">/* Don't use type 5: the user is appending to the string and type 5 is</span></div><div class="line">     * not able to remember empty space, so sdsMakeRoomFor() must be called</div><div class="line">     * at every appending operation.</div><div class="line">     * SDS_TYPE_5 没有办法保存空闲的空间长度，所以在拓展的时候避免使用它</div><div class="line">     */</div><div class="line">    <span class="keyword">if</span> (type == SDS_TYPE_5) type = SDS_TYPE_8;</div><div class="line">    hdrlen = sdsHdrSize(type);</div><div class="line">    <span class="keyword">if</span> (oldtype==type) &#123;</div><div class="line">        newsh = s_realloc(sh, hdrlen+newlen+<span class="number">1</span>);</div><div class="line">        <span class="keyword">if</span> (newsh == <span class="literal">NULL</span>) <span class="keyword">return</span> <span class="literal">NULL</span>;</div><div class="line">        s = (<span class="keyword">char</span>*)newsh+hdrlen;</div><div class="line">    &#125; <span class="keyword">else</span> &#123;</div><div class="line">        <span class="comment">/* Since the header size changes, need to move the string forward,</span></div><div class="line">         * and can't use realloc</div><div class="line">         * 当长度改变以后，没有办法直接使用 realloc，因为 header 的长度也发生变化了</div><div class="line">         */</div><div class="line">        newsh = s_malloc(hdrlen+newlen+<span class="number">1</span>);</div><div class="line">        <span class="keyword">if</span> (newsh == <span class="literal">NULL</span>) <span class="keyword">return</span> <span class="literal">NULL</span>;</div><div class="line">        <span class="built_in">memcpy</span>((<span class="keyword">char</span>*)newsh+hdrlen, s, len+<span class="number">1</span>);</div><div class="line">        s_free(sh);</div><div class="line">        s = (<span class="keyword">char</span>*)newsh+hdrlen;</div><div class="line">        s[<span class="number">-1</span>] = type;</div><div class="line">        sdssetlen(s, len);</div><div class="line">    &#125;</div><div class="line">    sdssetalloc(s, newlen);</div><div class="line">    <span class="keyword">return</span> s;</div><div class="line">&#125;</div><div class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">inline</span> <span class="keyword">void</span> <span class="title">sdssetlen</span><span class="params">(sds s, <span class="keyword">size_t</span> newlen)</span> </span>&#123;</div><div class="line">    <span class="keyword">unsigned</span> <span class="keyword">char</span> flags = s[<span class="number">-1</span>];</div><div class="line">    <span class="keyword">switch</span>(flags&amp;SDS_TYPE_MASK) &#123;</div><div class="line">        <span class="keyword">case</span> SDS_TYPE_5:</div><div class="line">            &#123;</div><div class="line">                <span class="comment">/* 直接将长度设置到 flags 字段的高 5 位 */</span></div><div class="line">                <span class="keyword">unsigned</span> <span class="keyword">char</span> *fp = ((<span class="keyword">unsigned</span> <span class="keyword">char</span>*)s)<span class="number">-1</span>;</div><div class="line">                *fp = SDS_TYPE_5 | (newlen &lt;&lt; SDS_TYPE_BITS);</div><div class="line">            &#125;</div><div class="line">            <span class="keyword">break</span>;</div><div class="line">        <span class="keyword">case</span> SDS_TYPE_8:</div><div class="line">            SDS_HDR(<span class="number">8</span>,s)-&gt;len = newlen;</div><div class="line">            <span class="keyword">break</span>;</div><div class="line">        <span class="keyword">case</span> SDS_TYPE_16:</div><div class="line">            SDS_HDR(<span class="number">16</span>,s)-&gt;len = newlen;</div><div class="line">            <span class="keyword">break</span>;</div><div class="line">        <span class="keyword">case</span> SDS_TYPE_32:</div><div class="line">            SDS_HDR(<span class="number">32</span>,s)-&gt;len = newlen;</div><div class="line">            <span class="keyword">break</span>;</div><div class="line">        <span class="keyword">case</span> SDS_TYPE_64:</div><div class="line">            SDS_HDR(<span class="number">64</span>,s)-&gt;len = newlen;</div><div class="line">            <span class="keyword">break</span>;</div><div class="line">    &#125;</div><div class="line">&#125;</div><div class="line"><span class="function">sds <span class="title">sdscatlen</span><span class="params">(sds s, <span class="keyword">const</span> <span class="keyword">void</span> *t, <span class="keyword">size_t</span> len)</span> </span>&#123;</div><div class="line">    <span class="keyword">size_t</span> curlen = sdslen(s);</div><div class="line">    s = sdsMakeRoomFor(s,len);</div><div class="line">    <span class="keyword">if</span> (s == <span class="literal">NULL</span>) <span class="keyword">return</span> <span class="literal">NULL</span>;</div><div class="line">    <span class="built_in">memcpy</span>(s+curlen, t, len);</div><div class="line">    sdssetlen(s, curlen+len);</div><div class="line">    s[curlen+len] = <span class="string">'\0'</span>;</div><div class="line">    <span class="keyword">return</span> s;</div><div class="line">&#125;</div><div class="line"><span class="function">sds <span class="title">sdscat</span><span class="params">(sds s, <span class="keyword">const</span> <span class="keyword">char</span> *t)</span> </span>&#123;</div><div class="line">    <span class="keyword">return</span> sdscatlen(s, t, <span class="built_in">strlen</span>(t));</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>可以看到，sdscat 操作底层是通过 sdscatLen 实现的，它主要分为如下几个步骤：</p>
+<ul>
+<li>检查剩余的空间是否足够，如果不够的话需要分配新的空间，在 sdsMakeRoomFor 函数里完成</li>
+<li>将需要追加的字符串拷贝入新的空间中</li>
+<li>更新字符串长度</li>
+</ul>
+<p>值得注意的是，在追加了新的字符串以后，SDS header的长度可能发生变化，例如 sdshdr8 类型的 SDS 追加了字符串以后变成了 sdshdr16 类型，这时候 header 增加了 2 个字节，这时候需要使用 realloc 重新分配空间，SDS 的指针就会随之发生变化。所以，所有改变 SDS 内容的操作都需要注意，操作前的 SDS 指针在操作完成以后不一定可用，需要使用函数返回的指针。</p>
+<h3 id="回收空闲空间"><a href="#回收空闲空间" class="headerlink" title="回收空闲空间"></a>回收空闲空间</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div></pre></td><td class="code"><pre><div class="line"><span class="function">sds <span class="title">sdsRemoveFreeSpace</span><span class="params">(sds s)</span> </span>&#123;</div><div class="line">    <span class="keyword">void</span> *sh, *newsh;</div><div class="line">    <span class="keyword">char</span> type, oldtype = s[<span class="number">-1</span>] &amp; SDS_TYPE_MASK;</div><div class="line">    <span class="keyword">int</span> hdrlen;</div><div class="line">    <span class="keyword">size_t</span> len = sdslen(s);</div><div class="line">    sh = (<span class="keyword">char</span>*)s-sdsHdrSize(oldtype);</div><div class="line">    type = sdsReqType(len);</div><div class="line">    hdrlen = sdsHdrSize(type);</div><div class="line">    <span class="keyword">if</span> (oldtype==type) &#123;</div><div class="line">        newsh = s_realloc(sh, hdrlen+len+<span class="number">1</span>);</div><div class="line">        <span class="keyword">if</span> (newsh == <span class="literal">NULL</span>) <span class="keyword">return</span> <span class="literal">NULL</span>;</div><div class="line">        s = (<span class="keyword">char</span>*)newsh+hdrlen;</div><div class="line">    &#125; <span class="keyword">else</span> &#123;</div><div class="line">        newsh = s_malloc(hdrlen+len+<span class="number">1</span>);</div><div class="line">        <span class="keyword">if</span> (newsh == <span class="literal">NULL</span>) <span class="keyword">return</span> <span class="literal">NULL</span>;</div><div class="line">        <span class="built_in">memcpy</span>((<span class="keyword">char</span>*)newsh+hdrlen, s, len+<span class="number">1</span>);</div><div class="line">        s_free(sh);</div><div class="line">        s = (<span class="keyword">char</span>*)newsh+hdrlen;</div><div class="line">        s[<span class="number">-1</span>] = type;</div><div class="line">        sdssetlen(s, len);</div><div class="line">    &#125;</div><div class="line">    sdssetalloc(s, len);</div><div class="line">    <span class="keyword">return</span> s;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>即使 SDS 发生截短操作，也并不会立刻回收空间，而是留待下一次可能的连接（追加）操作使用，除非主动调用 sdsRemoveFreeSpace 函数。</p>
+<h3 id="二进制安全"><a href="#二进制安全" class="headerlink" title="二进制安全"></a>二进制安全</h3><p>由于 SDS header 中储存着字符串的长度，所以即使在字符串中出现了空字符（’\0’），Redis 定义的函数也可以正确地进行处理。而这些带有空字符的字符串在使用 C 语言的字符串函数的时候需要特别注意，有可能产生错误。因此，需要 SDS 的使用者自己对内容进行分辨和正确地使用。</p>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Redis/" rel="tag"># Redis</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2016/10/11/redis_data_structure_summary/" rel="next" title="Redis数据结构: 综述">
+                <i class="fa fa-chevron-left"></i> Redis数据结构: 综述
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2016/10/15/redis_list/" rel="prev" title="Redis数据结构: 双端链表">
+                Redis数据结构: 双端链表 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/images/avatar.jpg"
+               alt="柿子" />
+          <p class="site-author-name" itemprop="name">柿子</p>
+           
+              <p class="site-description motion-element" itemprop="description">一个非主流程序员</p>
+          
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives/">
+                <span class="site-state-item-count">14</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">4</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">3</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#SDS-结构"><span class="nav-number">1.</span> <span class="nav-text">SDS 结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#使用的-C-语言特性"><span class="nav-number">2.</span> <span class="nav-text">使用的 C 语言特性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#获取-header-的操作"><span class="nav-number">3.</span> <span class="nav-text">获取 header 的操作</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#创建与销毁"><span class="nav-number">4.</span> <span class="nav-text">创建与销毁</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#连接（追加）字符串操作"><span class="nav-number">5.</span> <span class="nav-text">连接（追加）字符串操作</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#回收空闲空间"><span class="nav-number">6.</span> <span class="nav-text">回收空闲空间</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#二进制安全"><span class="nav-number">7.</span> <span class="nav-text">二进制安全</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">柿子</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

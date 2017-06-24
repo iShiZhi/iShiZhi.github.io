@@ -1,0 +1,765 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Redis," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.1.1" />
+
+
+
+
+
+
+<meta name="description" content="在阅读 Redis Hash 源代码的过程中，看到一些整数的哈希函数，以前没有接触过，所以拜读了一下 Thomas Wang 写的文章，顺手翻译一下。 由于我对整个文章内容还没有完全理解，当前的翻译还有些不够通畅，等到查阅更多资料以后再进行修订。附上原文：http://web.archive.org/web/20071223173210/http://www.concentric.net/~Ttw">
+<meta name="keywords" content="Redis">
+<meta property="og:type" content="article">
+<meta property="og:title" content="整数哈希函数">
+<meta property="og:url" content="http://yoursite.com/2016/10/16/integer_hash_function/index.html">
+<meta property="og:site_name" content="柿子的果盘">
+<meta property="og:description" content="在阅读 Redis Hash 源代码的过程中，看到一些整数的哈希函数，以前没有接触过，所以拜读了一下 Thomas Wang 写的文章，顺手翻译一下。 由于我对整个文章内容还没有完全理解，当前的翻译还有些不够通畅，等到查阅更多资料以后再进行修订。附上原文：http://web.archive.org/web/20071223173210/http://www.concentric.net/~Ttw">
+<meta property="og:updated_time" content="2017-06-24T11:33:53.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="整数哈希函数">
+<meta name="twitter:description" content="在阅读 Redis Hash 源代码的过程中，看到一些整数的哈希函数，以前没有接触过，所以拜读了一下 Thomas Wang 写的文章，顺手翻译一下。 由于我对整个文章内容还没有完全理解，当前的翻译还有些不够通畅，等到查阅更多资料以后再进行修订。附上原文：http://web.archive.org/web/20071223173210/http://www.concentric.net/~Ttw">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post","offset":12,"offset_float":0,"b2t":false,"scrollpercent":false},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2016/10/16/integer_hash_function/"/>
+
+
+
+
+
+  <title>整数哈希函数 | 柿子的果盘</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">柿子的果盘</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle">随手记录一些所读、所思、所感</p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2016/10/16/integer_hash_function/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="柿子">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="柿子的果盘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">整数哈希函数</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2016-10-16T00:00:00+08:00">
+                2016-10-16
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/翻译/" itemprop="url" rel="index">
+                    <span itemprop="name">翻译</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>在阅读 Redis Hash 源代码的过程中，看到一些整数的哈希函数，以前没有接触过，所以拜读了一下 Thomas Wang 写的文章，顺手翻译一下。 由于我对整个文章内容还没有完全理解，当前的翻译还有些不够通畅，等到查阅更多资料以后再进行修订。附上原文：<a href="http://web.archive.org/web/20071223173210/http://www.concentric.net/~Ttwang/tech/inthash.htm。" target="_blank" rel="external">http://web.archive.org/web/20071223173210/http://www.concentric.net/~Ttwang/tech/inthash.htm。</a></p>
+<h3 id="摘要"><a href="#摘要" class="headerlink" title="摘要"></a>摘要</h3><p>整数哈希函数是指以一个整数作为输入值，经过哈希变换以后得到一个整数作为输出值，所有通过这个函数得到的输出值具有均匀的分布。在这篇文章里，我们将讨论这个整数哈希函数的构造过程。</p>
+<h3 id="导论"><a href="#导论" class="headerlink" title="导论"></a>导论</h3><p>哈希表是一种重要的数据结构。在所有介绍基础数据结构的书籍中都包含了哈希表的一些算法。但是，这些书籍中讨论的哈希算法总是适合某些特定的场景，导致这些算法在实际使用的过程中性能低下。<br>众所周知，整数的哈希函数是哈希函数中最基本的一种形式。它将一个整型的输入值进行哈希转换以后，得到一个整型的结果。对于这样的哈希函数，得到的输出值的分布必须是均匀的。这意味着，当输入值经过变换以后映射到不同的哈希桶的地址时，所有的哈希桶有相同的概率被映射。此外，相似的输入值应该被哈希变换得到差异比较大的输出值；并且希望，输入值一个 bit 位的变化，会造成输出值所有的 bit 位的变化。</p>
+<h3 id="哈希函数构造原则"><a href="#哈希函数构造原则" class="headerlink" title="哈希函数构造原则"></a>哈希函数构造原则</h3><p>一个设计优良的哈希函数必须是可逆的。如果存在 h(x) -&gt; y，h(x) 的输入值的字长与输出值一样，且 h() 是可逆的，那么：</p>
+<ol>
+<li>如果 h(x1) == y1，那么存在 h_inverse(y1) == x1</li>
+<li>因为逆函数存在，所以不存在 x2 使得 x1 != x2 且 h(x2)</li>
+</ol>
+<p>h(x1) == y1 且 h(x2) == y1 的情形被称为冲突，使用可逆的哈希函数将避免这样的情况。所有的输入值和输出值将一一对应。<br>此外，这个函数需要通过一系列的计算和变换造成“雪崩效应”。雪崩效应表示在输入值上产生了一个 bit 位的变化，将导致输出值在约一半的 bit 位上发生变化，这个新的值将在这一系列的计算中产生。<br>例如，运算 a = a + b 是可逆的，如果我们知道 b 的数值和计算后 a 的数值，那么我们就可以通过减法运算知道 a 的前值。</p>
+<h3 id="Knuth的乘法哈希算法"><a href="#Knuth的乘法哈希算法" class="headerlink" title="Knuth的乘法哈希算法"></a>Knuth的乘法哈希算法</h3><p>在 Knuth 编写的”The Art of Computer Programming”（计算机程序设计艺术）一书的 6.4 部分，介绍了一种通过乘法的方式获得哈希函数的方法。用 2^32 的黄金分割（2654435761）乘以输入值来获取输出值。<br>由于 2654435761 和 2^32 没有公因子，这个算法产生了一个没有重合的，从输入值到输出值的完全映射。这个算法对于输入值较小的情况有比较好的哈希效果，但是对于输入值较大时的处理并不是很理想。因为对于所有基于乘法的哈希方法，对于输入值高位的 bit 值的改变，将无法造成输出值低位的 bit 值发生变化。</p>
+<h3 id="Robert-Jenkin-的-96bit-杂凑函数"><a href="#Robert-Jenkin-的-96bit-杂凑函数" class="headerlink" title="Robert Jenkin 的 96bit 杂凑函数"></a>Robert Jenkin 的 96bit 杂凑函数</h3><p>Robert Jenkin 发明了一个基于减法、按位异或和位移的哈希函数。<br>本文中所有的源代码是按照 Java 的语法编写的，操作符 ‘&gt;&gt;&gt;’ 表示无符号向右位移。如果要把源代码转成 C 语言，那么需要用 ‘uint32_t’ 替换 int，用 ‘uint64_t’ 替换 long。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">int</span> <span class="title">mix</span><span class="params">(<span class="keyword">int</span> a, <span class="keyword">int</span> b, <span class="keyword">int</span> c)</span></span></div><div class="line">&#123;</div><div class="line">  a=a-b;  a=a-c;  a=a^(c &gt;&gt;&gt; <span class="number">13</span>);</div><div class="line">  b=b-c;  b=b-a;  b=b^(a &lt;&lt; <span class="number">8</span>);</div><div class="line">  c=c-a;  c=c-b;  c=c^(b &gt;&gt;&gt; <span class="number">13</span>);</div><div class="line">  a=a-b;  a=a-c;  a=a^(c &gt;&gt;&gt; <span class="number">12</span>);</div><div class="line">  b=b-c;  b=b-a;  b=b^(a &lt;&lt; <span class="number">16</span>);</div><div class="line">  c=c-a;  c=c-b;  c=c^(b &gt;&gt;&gt; <span class="number">5</span>);</div><div class="line">  a=a-b;  a=a-c;  a=a^(c &gt;&gt;&gt; <span class="number">3</span>);</div><div class="line">  b=b-c;  b=b-a;  b=b^(a &lt;&lt; <span class="number">10</span>);</div><div class="line">  c=c-a;  c=c-b;  c=c^(b &gt;&gt;&gt; <span class="number">15</span>);</div><div class="line">  <span class="keyword">return</span> c;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>变量 ‘c’ 是输入值，当杂凑结束以后，又是输出值。变量 ‘a’ 和 ‘b’ 是两个经过初始化的一位随机 bit 位。注意到，在内部计算过程中产生的中间结果是 96bits 的，远远大于输出值的 32bits。同样注意到从变量 ‘a’ 到变量 ‘c’ 的三次减法运算。每一列作用于其中一个变量，通过位移操作，将另外两个变量的信息混入。<br>与乘法算法类似，减法也无法将输入值中高位的 bit 值变化反应到输出值的低位 bit 值中。在 Robert Jenkin 算法中的 9 次位移操作，将输入值向右位移了总计 61bits，向左位移了总计 34bits。由于上述所有的运算会连续作用在输入值上，每一个异或操作将会使产生的可能状态倍增。通过这些不同的位移操作，将会至少产生 2^9 种不同的状态。这也是为什么输入值中 1 个 bit 的变化会导致在输出值中那么多位的变化。<br>另一方面，减法的特性保证了这个哈希函数的均匀分布。观察输入值和随机 bit 的单位减法运算。如果随机 bit 是0，则输入值保持不变，否则所有输入值中所有的 bit 都将翻转（1变为0，0变为1）。因为只有当输入值和随机 bit 位都为 1 时才会产生进位。将输入值减掉随机 bit 将会导致大约一半的输入值的 bit 发生翻转。所以即使输入值不是均匀的，通过与随机 bit 进行减法运算也会得到一个分布均匀的结果。</p>
+<h3 id="32bit-杂凑函数"><a href="#32bit-杂凑函数" class="headerlink" title="32bit 杂凑函数"></a>32bit 杂凑函数</h3><p>基于 Robert Jenkin 在1997年提出的一个想法，我进行了相关的研究，并完成了一个整数的哈希函数。如下是我在2007年一月提出的最新版本。在函数中使用的常数是通过运行相关的搜索程序获得的。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">hash32shift</span><span class="params">(<span class="keyword">int</span> key)</span></span></div><div class="line">&#123;</div><div class="line">  key = ~key + (key &lt;&lt; <span class="number">15</span>); <span class="comment">// key = (key &lt;&lt; 15) - key - 1;</span></div><div class="line">  key = key ^ (key &gt;&gt;&gt; <span class="number">12</span>);</div><div class="line">  key = key + (key &lt;&lt; <span class="number">2</span>);</div><div class="line">  key = key ^ (key &gt;&gt;&gt; <span class="number">4</span>);</div><div class="line">  key = key * <span class="number">2057</span>; <span class="comment">// key = (key + (key &lt;&lt; 3)) + (key &lt;&lt; 11);</span></div><div class="line">  key = key ^ (key &gt;&gt;&gt; <span class="number">16</span>);</div><div class="line">  <span class="keyword">return</span> key;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>在补码表示下，(~x) + y 等价于 y - x - 1。<br>通过使用机器原生指令 ‘加补码’ 和 ‘位移 加’，上述的哈希函数可以在 HP9000 工作站上仅使用 11 个时钟周期完成。<br>通过多次的计算会增强输出值的随机性，但是同样会降低算法的性能。通过模拟运算发现，尽量在中间的计算中使用较小的位移数操作，而在前后的计算中使用较大的位移数操作是比较好的选择。</p>
+<h3 id="Robert-Jenkin-的-32bit-整数哈希函数"><a href="#Robert-Jenkin-的-32bit-整数哈希函数" class="headerlink" title="Robert Jenkin 的 32bit 整数哈希函数"></a>Robert Jenkin 的 32bit 整数哈希函数</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">uint32_t</span> hash( <span class="keyword">uint32_t</span> a)</div><div class="line">&#123;</div><div class="line">   a = (a+<span class="number">0x7ed55d16</span>) + (a&lt;&lt;<span class="number">12</span>);</div><div class="line">   a = (a^<span class="number">0xc761c23c</span>) ^ (a&gt;&gt;<span class="number">19</span>);</div><div class="line">   a = (a+<span class="number">0x165667b1</span>) + (a&lt;&lt;<span class="number">5</span>);</div><div class="line">   a = (a+<span class="number">0xd3a2646c</span>) ^ (a&lt;&lt;<span class="number">9</span>);</div><div class="line">   a = (a+<span class="number">0xfd7046c5</span>) + (a&lt;&lt;<span class="number">3</span>);</div><div class="line">   a = (a^<span class="number">0xb55a4f09</span>) ^ (a&gt;&gt;<span class="number">16</span>);</div><div class="line">   <span class="keyword">return</span> a;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>这个版本的整数哈希函数通过操作一些整数常数来辅助获得哈希值。我怀疑这些常数值的具体数值并没有对整个哈希过程产生特别重要的影响，即使使用 16bits 的常数，也依然可以产生很好的效果。<br>但是这些常数对于获得一个完美的整数哈希函数还是有一定意义的。一个测试函数可以不断改变这些常数值来获得一个完美的整数哈希函数。</p>
+<h3 id="使用乘法来进行哈希"><a href="#使用乘法来进行哈希" class="headerlink" title="使用乘法来进行哈希"></a>使用乘法来进行哈希</h3><p>如果使用乘法来进行哈希过程，则需要一个机制将输入值的高位变化反应在输出值的低位上。bit 翻转是最佳的选择，但是实现起来比较慢。一个可行的替代方案是向左位移操作。<br>使用乘法进行哈希会陷入一些困境。一些硬件平台在硬件层面上支持整数的乘法操作，这样使得一次的乘法可以在 4 个或者更少的时钟周期里完成；但是对于另外的一些硬件平台而言，需要耗费 8 个或者更多的时钟周期。而另外一方面，通过位移操作实现的哈希过程可以在所有的平台上都有良好的表现。<br>一个折中的方案是将输入值乘以一个 bit 位稀疏的值，这样在乘法操作比较慢的硬件平台上，就可以通过 “位移 加” 操作来进行替代。例如乘数设置为 (4096 + 8 + 1)，对应的位移表达式为 (key + (key &lt;&lt; 3)) + (key &lt;&lt; 12)。<br>在几乎所有的机器上，一个 3bits 的位移加上一个加法运算可以在一个时钟周期里完成。例如，奔腾指令集中的 ‘lea’ 指令可以在一个时钟周期里实现 “位移 加” 操作。<br>函数 hash32shiftmult() 使用一个位移操作和乘法运算的组合来对输入值进行哈希操作。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">hash32shiftmult</span><span class="params">(<span class="keyword">int</span> key)</span></span></div><div class="line">&#123;</div><div class="line">  <span class="keyword">int</span> c2=<span class="number">0x27d4eb2d</span>; <span class="comment">// a prime or an odd constant</span></div><div class="line">  key = (key ^ <span class="number">61</span>) ^ (key &gt;&gt;&gt; <span class="number">16</span>);</div><div class="line">  key = key + (key &lt;&lt; <span class="number">3</span>);</div><div class="line">  key = key ^ (key &gt;&gt;&gt; <span class="number">4</span>);</div><div class="line">  key = key * c2;</div><div class="line">  key = key ^ (key &gt;&gt;&gt; <span class="number">15</span>);</div><div class="line">  <span class="keyword">return</span> key;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<h3 id="64bit-杂凑函数"><a href="#64bit-杂凑函数" class="headerlink" title="64bit 杂凑函数"></a>64bit 杂凑函数</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">long</span> <span class="title">hash64shift</span><span class="params">(<span class="keyword">long</span> key)</span></span></div><div class="line">&#123;</div><div class="line">  key = (~key) + (key &lt;&lt; <span class="number">21</span>); <span class="comment">// key = (key &lt;&lt; 21) - key - 1;</span></div><div class="line">  key = key ^ (key &gt;&gt;&gt; <span class="number">24</span>);</div><div class="line">  key = (key + (key &lt;&lt; <span class="number">3</span>)) + (key &lt;&lt; <span class="number">8</span>); <span class="comment">// key * 265</span></div><div class="line">  key = key ^ (key &gt;&gt;&gt; <span class="number">14</span>);</div><div class="line">  key = (key + (key &lt;&lt; <span class="number">2</span>)) + (key &lt;&lt; <span class="number">4</span>); <span class="comment">// key * 21</span></div><div class="line">  key = key ^ (key &gt;&gt;&gt; <span class="number">28</span>);</div><div class="line">  key = key + (key &lt;&lt; <span class="number">31</span>);</div><div class="line">  <span class="keyword">return</span> key;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>由于 64bits 的位数比较多，所以需要更多的杂凑操作。</p>
+<h3 id="64bit-转换为-32bit-哈希函数"><a href="#64bit-转换为-32bit-哈希函数" class="headerlink" title="64bit 转换为 32bit 哈希函数"></a>64bit 转换为 32bit 哈希函数</h3><p>这类哈希函数的一个应用是将一个 64bit 的虚拟地址转为一个哈希表的索引值。由于函数的输出值的位数小于输入值，因此这类哈希函数不再是一一映射。<br>另外一个应用是将两个 32bit 整数转化为一个哈希值。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">hash6432shift</span><span class="params">(<span class="keyword">long</span> key)</span></span></div><div class="line">&#123;</div><div class="line">  key = (~key) + (key &lt;&lt; <span class="number">18</span>); <span class="comment">// key = (key &lt;&lt; 18) - key - 1;</span></div><div class="line">  key = key ^ (key &gt;&gt;&gt; <span class="number">31</span>);</div><div class="line">  key = key * <span class="number">21</span>; <span class="comment">// key = (key + (key &lt;&lt; 2)) + (key &lt;&lt; 4);</span></div><div class="line">  key = key ^ (key &gt;&gt;&gt; <span class="number">11</span>);</div><div class="line">  key = key + (key &lt;&lt; <span class="number">6</span>);</div><div class="line">  key = key ^ (key &gt;&gt;&gt; <span class="number">22</span>);</div><div class="line">  <span class="keyword">return</span> (<span class="keyword">int</span>) key;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<h3 id="并行操作"><a href="#并行操作" class="headerlink" title="并行操作"></a>并行操作</h3><p>如果CPU可以在一个时钟周期里同时分发多个指令，那么可以考虑在公式中加入一些并发处理的机制。<br>例如，如下公式中的两个位移操作可以并发执行。但是，如果是一台有多个 ALU，但是只有一个位移单元的机器上，这样的想法并不能提高速度。</p>
+<p>key ^= (key &lt;&lt; 17) | (key &gt;&gt;&gt; 16);</p>
+<p>对于 32bit 位宽的操作，只有一些位移对才是可逆的。这些位移对是：(17,16) (16,17) (14,19) (19,14) (13,20) (20,13) (10,23) (23,10) (8,25) (25,8)<br>乘法运算可以并发执行，所有的奇数乘法运算都是可逆的。</p>
+<p>key += (key &lt;&lt; 3) + (key &lt;&lt; 9); // key = key * (1 + 8 + 512)</p>
+<p>对于一些特定的机器，bit 翻转操作可以在一个时钟周期里完成。对于所有的奇数个 bit 翻转，只要对于非翻转的 bit 位与 1 或 0 进行异或操作，这样的操作是可逆的。</p>
+<p>key = (key | 64) ^ ((key &gt;&gt;&gt; 15) | (key &lt;&lt; 17));</p>
+<p>然而，对于其它的一些机器或者编译器，运行这些代码可能会需要 4 个时钟周期。</p>
+<h3 id="使用伪随机"><a href="#使用伪随机" class="headerlink" title="使用伪随机"></a>使用伪随机</h3><p>有一些关于这些杂凑函数是否可以用于伪随机过程的疑问。尽管上述的哈希过程看起来像是随机的，但是官方的建议是使用一个真正的伪随机数生成器来进行这个过程，例如 <a href="http://web.archive.org/web/20071223173210/http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt.html" target="_blank" rel="external">Mercenne Twister</a>。<br>所有在本文中出现的哈希函数都只进行了哈希相关的测试，并没有进行随机性的测试。</p>
+<h3 id="测试程序"><a href="#测试程序" class="headerlink" title="测试程序"></a>测试程序</h3><p><a href="http://web.archive.org/web/20071214220545/http://www.concentric.net/~Ttwang/tech/testchange.java" target="_blank" rel="external">测试程序</a>对不同的位移操作的量进行了雪崩效应的测试。这个程序检测了不同的 bit 位的值上是否发生了变化，保证了对于所有的输入值而言，这些位移量能够产生约 50% 左右的 bit 位的值发生变化。<br>这个测试程序打印出了所有的经过测试的算法的名字，以及经过了雪崩效应测试的参数值。</p>
+<h3 id="2次幂哈希表大小"><a href="#2次幂哈希表大小" class="headerlink" title="2次幂哈希表大小"></a>2次幂哈希表大小</h3><p>因为 2 的次幂在计算机中计算速度快，因此程序员通常使用 2 的次幂作为哈希表的大小。整数哈希函数可以用于将主哈希过程获得的输出值映射到实际的存储地址。</p>
+<p>addr = inthash(marginal_hash_value) &amp; (tablesize - 1);</p>
+<p>使用内置的整数哈希函数比对一个质数进行取余操作更快。一次的整数取余操作需要花费 18 个时钟周期甚至更多，主要取决于硬件平台的架构。</p>
+<h3 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h3><p>在这篇文章中，我们讨论了一系列整数相关的哈希函数。Knuth 的乘法方法最简单，但是有一些已知的缺点。Robert Jenkins 的 96bits 杂凑函数可以作为整数哈希函数使用，只是对于比较大的输入值更适用。本文还介绍了一个专门用于整数哈希的函数。<br>此外，我们还在文章中介绍了一个用于优化哈希值的应用程序。</p>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Redis/" rel="tag"># Redis</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2016/10/15/redis_list/" rel="next" title="Redis数据结构: 双端链表">
+                <i class="fa fa-chevron-left"></i> Redis数据结构: 双端链表
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2016/10/21/redis_dict/" rel="prev" title="Redis数据结构: 字典">
+                Redis数据结构: 字典 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/images/avatar.jpg"
+               alt="柿子" />
+          <p class="site-author-name" itemprop="name">柿子</p>
+           
+              <p class="site-description motion-element" itemprop="description">一个非主流程序员</p>
+          
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives/">
+                <span class="site-state-item-count">14</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">4</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">3</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#摘要"><span class="nav-number">1.</span> <span class="nav-text">摘要</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#导论"><span class="nav-number">2.</span> <span class="nav-text">导论</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#哈希函数构造原则"><span class="nav-number">3.</span> <span class="nav-text">哈希函数构造原则</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Knuth的乘法哈希算法"><span class="nav-number">4.</span> <span class="nav-text">Knuth的乘法哈希算法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Robert-Jenkin-的-96bit-杂凑函数"><span class="nav-number">5.</span> <span class="nav-text">Robert Jenkin 的 96bit 杂凑函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#32bit-杂凑函数"><span class="nav-number">6.</span> <span class="nav-text">32bit 杂凑函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Robert-Jenkin-的-32bit-整数哈希函数"><span class="nav-number">7.</span> <span class="nav-text">Robert Jenkin 的 32bit 整数哈希函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#使用乘法来进行哈希"><span class="nav-number">8.</span> <span class="nav-text">使用乘法来进行哈希</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#64bit-杂凑函数"><span class="nav-number">9.</span> <span class="nav-text">64bit 杂凑函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#64bit-转换为-32bit-哈希函数"><span class="nav-number">10.</span> <span class="nav-text">64bit 转换为 32bit 哈希函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#并行操作"><span class="nav-number">11.</span> <span class="nav-text">并行操作</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#使用伪随机"><span class="nav-number">12.</span> <span class="nav-text">使用伪随机</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#测试程序"><span class="nav-number">13.</span> <span class="nav-text">测试程序</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2次幂哈希表大小"><span class="nav-number">14.</span> <span class="nav-text">2次幂哈希表大小</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#结论"><span class="nav-number">15.</span> <span class="nav-text">结论</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">柿子</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
