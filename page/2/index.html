@@ -266,6 +266,146 @@
   
 
   <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2016/10/15/redis_list/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="柿子">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="柿子的果盘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2016/10/15/redis_list/" itemprop="url">Redis数据结构: 双端链表</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2016-10-15T00:00:00+08:00">
+                2016-10-15
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/开源项目/" itemprop="url" rel="index">
+                    <span itemprop="name">开源项目</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <p>链表是一种常用的数据结构，在很多的编程语言，例如 C++ 里都有现成的容器可以使用，除了 Redis 使用的 C 语言。因此，在 Redis 中，作者自己实现了一个双端链表的结构，在这个结构中，保存了头节点，尾节点和长度，这样可以很方便地从两端进行链表的遍历，也可以用 O(1) 的时间复杂度获得链表的长度。</p>
+<p>链表的结构在 adlist.h 中：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">listNode</span> &#123;</span></div><div class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">listNode</span> *<span class="title">prev</span>;</span>    <span class="comment">// 前置节点</span></div><div class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">listNode</span> *<span class="title">next</span>;</span>    <span class="comment">// 后继节点</span></div><div class="line">    <span class="keyword">void</span> *value;              <span class="comment">// 节点的值</span></div><div class="line">&#125; listNode;</div><div class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">list</span> &#123;</span></div><div class="line">    listNode *head;           <span class="comment">// 表头节点</span></div><div class="line">    listNode *tail;           <span class="comment">// 表尾节点</span></div><div class="line">    <span class="keyword">void</span> *(*dup)(<span class="keyword">void</span> *ptr);  <span class="comment">// 节点值复制函数</span></div><div class="line">    <span class="keyword">void</span> (*<span class="built_in">free</span>)(<span class="keyword">void</span> *ptr);  <span class="comment">// 节点值释放函数</span></div><div class="line">    <span class="keyword">int</span> (*match)(<span class="keyword">void</span> *ptr, <span class="keyword">void</span> *key);  <span class="comment">// 节点值对比函数</span></div><div class="line">    <span class="keyword">unsigned</span> <span class="keyword">long</span> len;        <span class="comment">// 链表所包含的节点数量</span></div><div class="line">&#125; <span class="built_in">list</span>;</div></pre></td></tr></table></figure>
+<p>在上述的结构中，链表的值使用 void* 指针来保存节点的值，而节点的值通过三个属性保存的函数来进行节点值的复制、比较和释放，这样实现了链表的多态。<br>另外，需要注意的是，表头节点的前置节点和表尾节点的后继节点都指向 NULL，意味着这个链表是无环的。</p>
+<p>由于双端链表可以由两个方向进行遍历，所以实现的迭代器中也包含了方向：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="comment">// 从表头向表尾进行迭代</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> AL_START_HEAD 0</span></div><div class="line"><span class="comment">// 从表尾到表头进行迭代</span></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> AL_START_TAIL 1</span></div><div class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">listIter</span> &#123;</span></div><div class="line">    listNode *next;           <span class="comment">// 当前迭代到的节点</span></div><div class="line">    <span class="keyword">int</span> direction;            <span class="comment">// 迭代的方向</span></div><div class="line">&#125; listIter;</div></pre></td></tr></table></figure>
+<p>由于这个结构比较简单，可以直接阅读 adlist.h 和 adlist.c 中的源代码，不再赘述。</p>
+
+          
+        
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
     <link itemprop="mainEntityOfPage" href="http://yoursite.com/2016/10/14/redis_sds/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1058,7 +1198,7 @@
           
             <div class="site-state-item site-state-posts">
               <a href="/archives/">
-                <span class="site-state-item-count">14</span>
+                <span class="site-state-item-count">15</span>
                 <span class="site-state-item-name">日志</span>
               </a>
             </div>
@@ -1080,7 +1220,7 @@
             
             <div class="site-state-item site-state-tags">
               <a href="/tags/index.html">
-                <span class="site-state-item-count">3</span>
+                <span class="site-state-item-count">4</span>
                 <span class="site-state-item-name">标签</span>
               </a>
             </div>
