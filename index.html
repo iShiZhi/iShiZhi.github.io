@@ -142,6 +142,16 @@
 
 
 
+  <script type="text/javascript">
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?30798a6e72702e12c529efb9326dc7e1";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
 
 
 
@@ -256,6 +266,148 @@
           <div id="content" class="content">
             
   <section id="posts" class="posts-expand">
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/07/18/restful_design/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="柿子">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="柿子的果盘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2017/07/18/restful_design/" itemprop="url">理解 RESTful</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-07-18T00:00:00+08:00">
+                2017-07-18
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/架构/" itemprop="url" rel="index">
+                    <span itemprop="name">架构</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="什么是-RESTful"><a href="#什么是-RESTful" class="headerlink" title="什么是 RESTful"></a>什么是 RESTful</h3><p>REST 是 Representation State Transfer 的缩写，具体的含义是“资源表现层的状态转化”。如果一个架构符合 REST 原则，那么它就被称为 RESTful 的。要理解 REST 原则，我们需要理解如下的一些概念。</p>
+<h4 id="资源及其表现"><a href="#资源及其表现" class="headerlink" title="资源及其表现"></a>资源及其表现</h4><p>对于网络上的信息，例如一段文本，一个网页，一张图片，或一段音乐，都可以被称为资源。它们在网络上由一个具体的 URI 进行指向。当我们需要获取这个字段时，访问对应的 URI 就可以了。<br>而资源是一种信息实体，它会有很多具体的表现形式，例如 HTML 格式、JSON 格式等。URI只代表资源的实体，而最后例如“.html”等后缀名则是这个资源的具体表现形式。</p>
+<h4 id="状态转化"><a href="#状态转化" class="headerlink" title="状态转化"></a>状态转化</h4><p>访问一个网站，就代表了客户端和服务器的一个互动过程。在这个过程中，会涉及到数据和状态的变化。而 HTTP 协议，是一个无状态协议。这意味着，所有的状态都保存在服务器端。因此，如果客户端想要操作服务器，必须通过某种手段，让服务器端发生“状态转化”。而这种转化是建立在资源的表现层上的，所以就是“资源表现层状的态转化”。</p>
+<h3 id="实践原则"><a href="#实践原则" class="headerlink" title="实践原则"></a>实践原则</h3><p>在具体使用 RESTful 架构的时候，如下的原则通常是一种比较好的实践方式：</p>
+<ul>
+<li>URI 表示的是一种资源，而不是一个动作，因此避免使用动词；</li>
+<li>在 HTTP 请求的 header 中用 Accept 和 Content-Type 来指定资源的表现形式，而不是通过后缀；</li>
+<li>对资源的操作使用 HTTP 协议中定义的基本操作来进行：GET 获取资源，POST 新建资源或更新资源，PUT 更新资源，DELETE 删除资源。</li>
+</ul>
+
+          
+        
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+
+
     
       
 
@@ -1761,181 +1913,6 @@
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2016/11/03/redis_zip_list/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="柿子">
-      <meta itemprop="description" content="">
-      <meta itemprop="image" content="/images/avatar.jpg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="柿子的果盘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2016/11/03/redis_zip_list/" itemprop="url">Redis数据结构: 压缩列表</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2016-11-03T00:00:00+08:00">
-                2016-11-03
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category" >
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/开源项目/" itemprop="url" rel="index">
-                    <span itemprop="name">开源项目</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <p>与整数集合类似，压缩列表也是 Redis 为了节约内存而开发的。它是由一系列特殊编码的内存块构成的列表。一个压缩列表可以包含多个节点，每个节点可以保存一个长度受限的字符数组或者整数。通过特殊的编码方式，可以用最少的空间来存储不同长度的字符串和整数，使得使用的存储空间最小。</p>
-<h3 id="压缩列表的基本结构"><a href="#压缩列表的基本结构" class="headerlink" title="压缩列表的基本结构"></a>压缩列表的基本结构</h3><p>一个压缩列表包含如下的字段：</p>
-<ul>
-<li>zlbytes：uint32_t，记录整个压缩列表占用的内存字节数</li>
-<li>zltail：uint32_t，记录压缩列表表尾节点距离压缩列表的起始发位置的字节数</li>
-<li>zllen：uint16_t，记录了压缩列表包含的节点数量，注意，这个节点的数量不一定是真实的数量，当节点的数量小于 65535（uint16_t 所能表达的最大的值）时，这个字段记录了节点的数量，当数量超过这个限制的时候，就需要遍历整个压缩列表才能获得节点的数量</li>
-<li>entryX：在上述 10 个节点之后，是保存在这个压缩列表中的节点，长度由具体的结构决定。每个压缩列表的节点保存了一个长度受限的字节数组，或者一个整数值，具体的结构如下：<ul>
-<li>previous_entry_length：记录前一个节点的长度，如果前一个节点的长度小于 254，即 1 个字节能够存储，则使用 1 个字节来存储这个长度；否则使用 5 个字节来保存，其中第一个字节固定保存 255，后续四个字节保存长度。这个字段与 zltail 联合起来，可以完成从压缩列表的末端开始，向表头遍历的操作：首先，通过表头指针和 zltail 计算获得最后一个节点的指针；然后，通过最后一个节点的 previous_entry_length 计算获得前一个节点的指针，重复上述过程，就可以持续向前直到表头</li>
-<li>encoding：保存节点的 content 属性对应的数据类型和长度，encoding 的第一个字节的前两位决定了保存的数据类型<ul>
-<li>00：表示的是长度小于等于 63（2^4 - 1）的字节数组，此时 encoding 的长度是 1 个字节</li>
-<li>01：表示的是长度小于等于 16383（2^4 - 1）的字节数组，此时 encoding 的长度是 2 个字节</li>
-<li>10：表示的是长度小于等于 4294967295（23^2 - 1）的字节数组，此时 encoding 的长度是 5 个字节，此时第一个字节除了前两位以外全部留空</li>
-<li>11：表示的是整数，对应五种整数类型<ul>
-<li>11000000：int16_t</li>
-<li>11010000：int32_t</li>
-<li>11100000：int64_t</li>
-<li>11110000：24 位有符号整数</li>
-<li>11111110：8 位有符号整数</li>
-<li>1111xxxx：可以表示 0 - 12 这几个数，由于 0000、1110 和 1111 被占用，因此二进制值为 1 - 13，减 1 表示实际的值</li>
-</ul>
-</li>
-</ul>
-</li>
-<li>content：节点保存的值</li>
-</ul>
-</li>
-<li>zlend：uint8_t，用特殊值 0xFF（255）来标记压缩列表的末端</li>
-</ul>
-<h3 id="Push-和-Pop-操作"><a href="#Push-和-Pop-操作" class="headerlink" title="Push 和 Pop 操作"></a>Push 和 Pop 操作</h3><p>Redis 的压缩列表支持从两端插入（Push）或删除（Pop）节点，以 Push 为例：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">unsigned</span> <span class="keyword">char</span> *<span class="title">ziplistPush</span><span class="params">(<span class="keyword">unsigned</span> <span class="keyword">char</span> *zl, <span class="keyword">unsigned</span> <span class="keyword">char</span> *s, <span class="keyword">unsigned</span> <span class="keyword">int</span> slen, <span class="keyword">int</span> where)</span> </span>&#123;</div><div class="line">    <span class="comment">// 根据 where 参数的值，决定将值插入到表头还是表尾</span></div><div class="line">    <span class="keyword">unsigned</span> <span class="keyword">char</span> *p;</div><div class="line">    p = (where == ZIPLIST_HEAD) ? ZIPLIST_ENTRY_HEAD(zl) : ZIPLIST_ENTRY_END(zl);</div><div class="line">    <span class="comment">// 返回添加新值后的 ziplist</span></div><div class="line">    <span class="keyword">return</span> __ziplistInsert(zl,p,s,slen);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>在 __ziplistInsert 函数中实现了新节点的插入，主要的步骤为：</p>
-<ol>
-<li>根据前置节点和当前节点计算 entry 的 previous_entry_length、encoding 和 contents 字段占用的字节数</li>
-<li>判断当前指针指向的位置是否能够存储当前的节点，如果不能存储，则需用 realloc 函数调整压缩列表的大小</li>
-<li>移动后续节点腾出空间，将当前需要插入的节点放入，同时需要更新后续的节点的 previous_entry_length</li>
-</ol>
-<p>具体的代码如下：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div><div class="line">92</div><div class="line">93</div><div class="line">94</div><div class="line">95</div><div class="line">96</div><div class="line">97</div><div class="line">98</div><div class="line">99</div><div class="line">100</div><div class="line">101</div><div class="line">102</div><div class="line">103</div><div class="line">104</div><div class="line">105</div><div class="line">106</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">static</span> <span class="keyword">unsigned</span> <span class="keyword">char</span> *__ziplistInsert(<span class="keyword">unsigned</span> <span class="keyword">char</span> *zl, <span class="keyword">unsigned</span> <span class="keyword">char</span> *p, <span class="keyword">unsigned</span> <span class="keyword">char</span> *s, <span class="keyword">unsigned</span> <span class="keyword">int</span> slen) &#123;</div><div class="line">    <span class="comment">// 记录当前 ziplist 的长度</span></div><div class="line">    <span class="keyword">size_t</span> curlen = intrev32ifbe(ZIPLIST_BYTES(zl)), reqlen, prevlen = <span class="number">0</span>;</div><div class="line">    <span class="keyword">size_t</span> offset;</div><div class="line">    <span class="keyword">int</span> nextdiff = <span class="number">0</span>;</div><div class="line">    <span class="keyword">unsigned</span> <span class="keyword">char</span> encoding = <span class="number">0</span>;</div><div class="line">    <span class="keyword">long</span> <span class="keyword">long</span> value = <span class="number">123456789</span>;</div><div class="line">    zlentry entry, tail;</div><div class="line">    <span class="keyword">if</span> (p[<span class="number">0</span>] != ZIP_END) &#123;</div><div class="line">        <span class="comment">// 如果 p[0] 不指向列表末端，说明列表非空，并且 p 正指向列表的其中一个节点，那么取出 p 所指向节点的信息，并将它保存到 entry 结构中</span></div><div class="line">        <span class="comment">// 然后用 prevlen 变量记录前置节点的长度，当插入新节点之后 p 所指向的节点就成了新节点的前置节点</span></div><div class="line">        entry = zipEntry(p);</div><div class="line">        prevlen = entry.prevrawlen;</div><div class="line">    &#125; <span class="keyword">else</span> &#123;</div><div class="line">        <span class="comment">// 如果 p 指向表尾末端，那么程序需要检查列表是否为：</span></div><div class="line">        <span class="comment">// 1)如果 ptail 也指向 ZIP_END ，那么列表为空；</span></div><div class="line">        <span class="comment">// 2)如果列表不为空，那么 ptail 将指向列表的最后一个节点。</span></div><div class="line">        <span class="keyword">unsigned</span> <span class="keyword">char</span> *ptail = ZIPLIST_ENTRY_TAIL(zl);</div><div class="line">        <span class="keyword">if</span> (ptail[<span class="number">0</span>] != ZIP_END) &#123;</div><div class="line">            <span class="comment">// 表尾节点为新节点的前置节点</span></div><div class="line">            <span class="comment">// 取出表尾节点的长度</span></div><div class="line">            <span class="comment">// T = O(1)</span></div><div class="line">            prevlen = zipRawEntryLength(ptail);</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line">    <span class="comment">// 尝试看能否将输入字符串转换为整数，如果成功的话：</span></div><div class="line">    <span class="comment">// 1)value 将保存转换后的整数值</span></div><div class="line">    <span class="comment">// 2)encoding 则保存适用于 value 的编码方式</span></div><div class="line">    <span class="comment">// 无论使用什么编码， reqlen 都保存节点值的长度</span></div><div class="line">    <span class="keyword">if</span> (zipTryEncoding(s,slen,&amp;value,&amp;encoding)) &#123;</div><div class="line">        reqlen = zipIntSize(encoding);</div><div class="line">    &#125; <span class="keyword">else</span> &#123;</div><div class="line">        reqlen = slen;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="comment">// 计算编码前置节点的长度所需的大小</span></div><div class="line">    reqlen += zipPrevEncodeLength(<span class="literal">NULL</span>,prevlen);</div><div class="line">    <span class="comment">// 计算编码当前节点值所需的大小</span></div><div class="line">    reqlen += zipEncodeLength(<span class="literal">NULL</span>,encoding,slen);</div><div class="line">    <span class="comment">// 只要新节点不是被添加到列表末端，</span></div><div class="line">    <span class="comment">// 那么程序就需要检查看 p 所指向的节点（的 header）能否编码新节点的长度。</span></div><div class="line">    <span class="comment">// nextdiff 保存了新旧编码之间的字节大小差，如果这个值大于 0</span></div><div class="line">    <span class="comment">// 那么说明需要对 p 所指向的节点（的 header ）进行扩展</span></div><div class="line">    <span class="comment">// T = O(1)</span></div><div class="line">    nextdiff = (p[<span class="number">0</span>] != ZIP_END) ? zipPrevLenByteDiff(p,reqlen) : <span class="number">0</span>;</div><div class="line">    <span class="comment">// 因为重分配空间可能会改变 zl 的地址</span></div><div class="line">    <span class="comment">// 所以在分配之前，需要记录 zl 到 p 的偏移量，然后在分配之后依靠偏移量还原 p</span></div><div class="line">    offset = p-zl;</div><div class="line"></div><div class="line">    <span class="comment">// curlen 是 ziplist 原来的长度</span></div><div class="line">    <span class="comment">// reqlen 是整个新节点的长度</span></div><div class="line">    <span class="comment">// nextdiff 是新节点的后继节点扩展 header 的长度（要么 0 字节，要么 4 个字节）</span></div><div class="line">    zl = ziplistResize(zl,curlen+reqlen+nextdiff);</div><div class="line">    p = zl+offset;</div><div class="line">    <span class="keyword">if</span> (p[<span class="number">0</span>] != ZIP_END) &#123;</div><div class="line">        <span class="comment">// 新元素之后还有节点，因为新元素的加入，需要对这些原有节点进行调整</span></div><div class="line">        <span class="comment">// 移动现有元素，为新元素的插入空间腾出位置</span></div><div class="line">        memmove(p+reqlen,p-nextdiff,curlen-offset<span class="number">-1</span>+nextdiff);</div><div class="line">        <span class="comment">// 将新节点的长度编码至后置节点</span></div><div class="line">        <span class="comment">// p+reqlen 定位到后置节点</span></div><div class="line">        <span class="comment">// reqlen 是新节点的长度</span></div><div class="line">        zipPrevEncodeLength(p+reqlen,reqlen);</div><div class="line">        <span class="comment">// 更新到达表尾的偏移量，将新节点的长度也算上</span></div><div class="line">        ZIPLIST_TAIL_OFFSET(zl) =</div><div class="line">            intrev32ifbe(intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl))+reqlen);</div><div class="line">        <span class="comment">// 如果新节点的后面有多于一个节点</span></div><div class="line">        <span class="comment">// 那么程序需要将 nextdiff 记录的字节数也计算到表尾偏移量中</span></div><div class="line">        <span class="comment">// 这样才能让表尾偏移量正确对齐表尾节点</span></div><div class="line">        tail = zipEntry(p+reqlen);</div><div class="line">        <span class="keyword">if</span> (p[reqlen+tail.headersize+tail.len] != ZIP_END) &#123;</div><div class="line">            ZIPLIST_TAIL_OFFSET(zl) =</div><div class="line">                intrev32ifbe(intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl))+nextdiff);</div><div class="line">        &#125;</div><div class="line">    &#125; <span class="keyword">else</span> &#123;</div><div class="line">        <span class="comment">/* This element will be the new tail. */</span></div><div class="line">        <span class="comment">// 新元素是新的表尾节点</span></div><div class="line">        ZIPLIST_TAIL_OFFSET(zl) = intrev32ifbe(p-zl);</div><div class="line">    &#125;</div><div class="line">    <span class="comment">/* When nextdiff != 0, the raw length of the next entry has changed, so</span></div><div class="line">     * we need to cascade the update throughout the ziplist */</div><div class="line">    <span class="comment">// 当 nextdiff != 0 时，新节点的后继节点的（header 部分）长度已经被改变，</span></div><div class="line">    <span class="comment">// 所以需要级联地更新后续的节点</span></div><div class="line">    <span class="keyword">if</span> (nextdiff != <span class="number">0</span>) &#123;</div><div class="line">        offset = p-zl;</div><div class="line">        <span class="comment">// T  = O(N^2)</span></div><div class="line">        zl = __ziplistCascadeUpdate(zl,p+reqlen);</div><div class="line">        p = zl+offset;</div><div class="line">    &#125;</div><div class="line">    <span class="comment">/* Write the entry */</span></div><div class="line">    <span class="comment">// 一切搞定，将前置节点的长度写入新节点的 header</span></div><div class="line">    p += zipPrevEncodeLength(p,prevlen);</div><div class="line">    <span class="comment">// 将节点值的长度写入新节点的 header</span></div><div class="line">    p += zipEncodeLength(p,encoding,slen);</div><div class="line">    <span class="comment">// 写入节点值</span></div><div class="line">    <span class="keyword">if</span> (ZIP_IS_STR(encoding)) &#123;</div><div class="line">        <span class="comment">// T = O(N)</span></div><div class="line">        <span class="built_in">memcpy</span>(p,s,slen);</div><div class="line">    &#125; <span class="keyword">else</span> &#123;</div><div class="line">        <span class="comment">// T = O(1)</span></div><div class="line">        zipSaveInteger(p,value,encoding);</div><div class="line">    &#125;</div><div class="line">    <span class="comment">// 更新列表的节点数量计数器</span></div><div class="line">    <span class="comment">// T = O(1)</span></div><div class="line">    ZIPLIST_INCR_LENGTH(zl,<span class="number">1</span>);</div><div class="line">    <span class="keyword">return</span> zl;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>在更新后续节点的 previous_entry_length 的过程中，可能会发生如下一种情况：当前的节点原先的长度小于 254，而新插入的节点长度大于 254，那么 encoding 的长度变长了，这样，若后续节点是一系列长度为 250 - 254，那么需要连续地更新后续节点的 header（即计算节点长度、重新分配空间然后后移后续节点插入新的 encoding 字段，直到整个压缩列表满足条件）。这个过程是在函数 __ziplistCascadeUpdate 中完成的：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">static</span> <span class="keyword">unsigned</span> <span class="keyword">char</span> *__ziplistCascadeUpdate(<span class="keyword">unsigned</span> <span class="keyword">char</span> *zl, <span class="keyword">unsigned</span> <span class="keyword">char</span> *p) &#123;</div><div class="line">    <span class="keyword">size_t</span> curlen = intrev32ifbe(ZIPLIST_BYTES(zl)), rawlen, rawlensize;</div><div class="line">    <span class="keyword">size_t</span> offset, noffset, extra;</div><div class="line">    <span class="keyword">unsigned</span> <span class="keyword">char</span> *np;</div><div class="line">    zlentry cur, next;</div><div class="line">    <span class="keyword">while</span> (p[<span class="number">0</span>] != ZIP_END) &#123;</div><div class="line">        <span class="comment">// 将 p 所指向的节点的信息保存到 cur 结构中</span></div><div class="line">        cur = zipEntry(p);</div><div class="line">        <span class="comment">// 当前节点的长度</span></div><div class="line">        rawlen = cur.headersize + cur.len;</div><div class="line">        <span class="comment">// 计算编码当前节点的长度所需的字节数</span></div><div class="line">        <span class="comment">// T = O(1)</span></div><div class="line">        rawlensize = zipPrevEncodeLength(<span class="literal">NULL</span>,rawlen);</div><div class="line">        <span class="comment">/* Abort if there is no next entry. */</span></div><div class="line">        <span class="comment">// 如果已经没有后续空间需要更新了，跳出</span></div><div class="line">        <span class="keyword">if</span> (p[rawlen] == ZIP_END) <span class="keyword">break</span>;</div><div class="line">        <span class="comment">// 取出后续节点的信息，保存到 next 结构中</span></div><div class="line">        next = zipEntry(p+rawlen);</div><div class="line">        <span class="comment">// 后续节点编码当前节点的空间已经足够，无须再进行任何处理，跳出</span></div><div class="line">        <span class="comment">// 可以证明，只要遇到一个空间足够的节点，</span></div><div class="line">        <span class="comment">// 那么这个节点之后的所有节点的空间都是足够的</span></div><div class="line">        <span class="keyword">if</span> (next.prevrawlen == rawlen) <span class="keyword">break</span>;</div><div class="line">        <span class="keyword">if</span> (next.prevrawlensize &lt; rawlensize) &#123;</div><div class="line">            <span class="comment">// 执行到这里，表示 next 空间的大小不足以编码 cur 的长度</span></div><div class="line">            <span class="comment">// 所以程序需要对 next 节点的（header 部分）空间进行扩展</span></div><div class="line">            <span class="comment">// 记录 p 的偏移量</span></div><div class="line">            offset = p-zl;</div><div class="line">            <span class="comment">// 计算需要增加的节点数量</span></div><div class="line">            extra = rawlensize-next.prevrawlensize;</div><div class="line">            <span class="comment">// 扩展 zl 的大小</span></div><div class="line">            zl = ziplistResize(zl,curlen+extra);</div><div class="line">            <span class="comment">// 还原指针 p</span></div><div class="line">            p = zl+offset;</div><div class="line">            <span class="comment">/* Current pointer and offset for next element. */</span></div><div class="line">            <span class="comment">// 记录下一节点的偏移量</span></div><div class="line">            np = p+rawlen;</div><div class="line">            noffset = np-zl;</div><div class="line">            <span class="comment">// 当 next 节点不是表尾节点时，更新列表到表尾节点的偏移量</span></div><div class="line">            <span class="keyword">if</span> ((zl+intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl))) != np) &#123;</div><div class="line">                ZIPLIST_TAIL_OFFSET(zl) =</div><div class="line">                    intrev32ifbe(intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl))+extra);</div><div class="line">            &#125;</div><div class="line">            <span class="comment">// 向后移动 cur 节点之后的数据，为 cur 的新 header 腾出空间</span></div><div class="line">            memmove(np+rawlensize,</div><div class="line">                np+next.prevrawlensize,</div><div class="line">                curlen-noffset-next.prevrawlensize<span class="number">-1</span>);</div><div class="line">            <span class="comment">// 将新的前一节点长度值编码进新的 next 节点的 header</span></div><div class="line">            zipPrevEncodeLength(np,rawlen);</div><div class="line">            <span class="comment">// 移动指针，继续处理下个节点</span></div><div class="line">            p += rawlen;</div><div class="line">            curlen += extra;</div><div class="line">        &#125; <span class="keyword">else</span> &#123;</div><div class="line">            <span class="keyword">if</span> (next.prevrawlensize &gt; rawlensize) &#123;</div><div class="line">                <span class="comment">/* This would result in shrinking, which we want to avoid.</span></div><div class="line">                 * So, set "rawlen" in the available bytes. */</div><div class="line">                <span class="comment">// 执行到这里，说明 next 节点编码前置节点的 header 空间有 5 字节</span></div><div class="line">                <span class="comment">// 而编码 rawlen 只需要 1 字节</span></div><div class="line">                <span class="comment">// 但是程序不会对 next 进行缩小，</span></div><div class="line">                <span class="comment">// 所以这里只将 rawlen 写入 5 字节的 header 中就算了。</span></div><div class="line">                <span class="comment">// T = O(1)</span></div><div class="line">                zipPrevEncodeLengthForceLarge(p+rawlen,rawlen);</div><div class="line">            &#125; <span class="keyword">else</span> &#123;</div><div class="line">                <span class="comment">// 运行到这里，说明 cur 节点的长度正好可以编码到 next 节点的 header 中</span></div><div class="line">                zipPrevEncodeLength(p+rawlen,rawlen);</div><div class="line">            &#125;</div><div class="line">            <span class="keyword">break</span>;</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> zl;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>不仅是插入有可能导致这样的连锁更新，当删除或改变一个节点的内容时，也可能发生这样的连锁更新。这样的连锁更新是非常耗费时间的（最差的情况时间复杂度为 O(N)），但是只有碰到连续长度为 250 - 254 的节点串时，才会触发该操作，当遍历到第一个满足条件的节点以后，操作就停止了。</p>
-<p>值得注意的是，由于压缩列表的各项操作都需要遍历整个列表才能完成，因此，操作的时间复杂度都为 O(N)，这样使得在使用压缩列表时，表中的节点数不能太多，否则将极度影响操作的效率。在后续的数据结构介绍过程中，我们可以看到 Redis 对于压缩列表的使用是有限制的，使得既能利用压缩列表节省空间的特性，也能通过其它的设计或约束降低操作的时间复杂度。</p>
-
-          
-        
-      
-    </div>
-
-    <div>
-      
-    </div>
-
-    <div>
-      
-    </div>
-
-    <div>
-      
-    </div>
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-
-
-    
   </section>
 
   
@@ -1985,7 +1962,7 @@
           
             <div class="site-state-item site-state-posts">
               <a href="/archives/">
-                <span class="site-state-item-count">18</span>
+                <span class="site-state-item-count">19</span>
                 <span class="site-state-item-name">日志</span>
               </a>
             </div>
@@ -1996,7 +1973,7 @@
             
             <div class="site-state-item site-state-categories">
               <a href="/categories/index.html">
-                <span class="site-state-item-count">4</span>
+                <span class="site-state-item-count">5</span>
                 <span class="site-state-item-name">分类</span>
               </a>
             </div>
@@ -2007,7 +1984,7 @@
             
             <div class="site-state-item site-state-tags">
               <a href="/tags/index.html">
-                <span class="site-state-item-count">6</span>
+                <span class="site-state-item-count">7</span>
                 <span class="site-state-item-name">标签</span>
               </a>
             </div>
