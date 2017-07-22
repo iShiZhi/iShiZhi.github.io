@@ -294,6 +294,190 @@
   
 
   <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/07/22/redis_lock/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="柿子">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="柿子的果盘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2017/07/22/redis_lock/" itemprop="url">使用 Redis 实现分布式锁</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-07-22T00:00:00+08:00">
+                2017-07-22
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/网站开发/" itemprop="url" rel="index">
+                    <span itemprop="name">网站开发</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/2017/07/22/redis_lock/#comments" itemprop="discussionUrl">
+                  评论数 <span class="post-comments-count fb-comments-count" data-href="http://yoursite.com/2017/07/22/redis_lock/" itemprop="commentCount">0</span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+             <span id="/2017/07/22/redis_lock/" class="leancloud_visitors" data-flag-title="使用 Redis 实现分布式锁">
+               <span class="post-meta-divider">|</span>
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               
+                 <span class="post-meta-item-text">阅读次数 </span>
+               
+                 <span class="leancloud-visitors-count"></span>
+             </span>
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h4 id="SETNX-命令"><a href="#SETNX-命令" class="headerlink" title="SETNX 命令"></a>SETNX 命令</h4><p>参考 Redis 的<a href="http://redisdoc.com/string/setnx.html" target="_blank" rel="external">命令手册</a>，相关说明如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line">SETNX key value</div><div class="line"></div><div class="line">将 key 的值设为 value ，当且仅当 key 不存在。</div><div class="line">若给定的 key 已经存在，则 SETNX 不做任何动作。</div><div class="line">SETNX 是『SET if Not eXists』(如果不存在，则 SET)的简写。</div><div class="line"></div><div class="line">可用版本：</div><div class="line">&gt;= 1.0.0</div><div class="line">时间复杂度：</div><div class="line">O(1)</div><div class="line">返回值：</div><div class="line">设置成功，返回 1 。</div><div class="line">设置失败，返回 0 。</div></pre></td></tr></table></figure></p>
+<h4 id="简单实现"><a href="#简单实现" class="headerlink" title="简单实现"></a>简单实现</h4><p>一个简单的想法是，执行命令 SETNX lock_name (current_time + lock_time)：</p>
+<ul>
+<li>若返回 1，则设置成功，获得这个锁；</li>
+<li>若返回 0，则等待或者直接返回失败。</li>
+</ul>
+<h4 id="多个进程获得同一个锁"><a href="#多个进程获得同一个锁" class="headerlink" title="多个进程获得同一个锁"></a>多个进程获得同一个锁</h4><p>如果按照上述的实现方式，如果没有很好地实现锁的释放机制，则很有可能导致死锁的情况，具体的例子如下：</p>
+<ul>
+<li>P1 获得 lock_name 对应的锁</li>
+<li>P1 断开连接，没有正常释放锁</li>
+<li>P2 和 P3 同时发现锁已经超时</li>
+<li>P2 执行 DEL lock_name 删除锁</li>
+<li>P2 执行 SETNX lock_name 获得锁</li>
+<li>P3 执行 DEL lock_name 将 P2 刚刚设置的键 lock_name 删除</li>
+<li>P3 执行 SETNX lock_name 获得锁</li>
+</ul>
+<p>在这种情况下，由于 P3 在 P2 获得锁前检测到了锁超时，因此执行了 DEL 命令，将 P2 后来设置的超时删除。而 P2 和 P3 同时获得了锁。</p>
+<h4 id="GETSET-命令"><a href="#GETSET-命令" class="headerlink" title="GETSET 命令"></a>GETSET 命令</h4><p>参考 Redis 的<a href="http://redisdoc.com/string/getset.html" target="_blank" rel="external">命令手册</a>，相关说明如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line">GETSET key value</div><div class="line">将给定 key 的值设为 value ，并返回 key 的旧值(old value)。</div><div class="line">当 key 存在但不是字符串类型时，返回一个错误。</div><div class="line"></div><div class="line">可用版本：</div><div class="line">&gt;= 1.0.0</div><div class="line">时间复杂度：</div><div class="line">O(1)</div><div class="line">返回值：</div><div class="line">返回给定 key 的旧值。</div><div class="line">当 key 没有旧值时，也即是， key 不存在时，返回 nil 。</div></pre></td></tr></table></figure></p>
+<h4 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h4><p>我们需要替换对锁超时的情况的处理，按时间先后顺序如下：</p>
+<ul>
+<li>P1 获得 lock_name 对应的锁</li>
+<li>P1 断开连接，没有正常释放锁</li>
+<li>P2 和 P3 同时发现锁已经超时</li>
+<li>P2 执行 GETSET lock_name (current_time + lock_time)</li>
+<li>P3 执行 GETSET lock_name (current_time + lock_time)</li>
+<li>P3 获取返回结果，lock_name 对应的旧值小于检测时间，说明设置成功，获得锁</li>
+<li>P2 获取返回结果，lock_name 对应的旧值是 P3 设置的结果，大于检测时间，说明已有其它线程获得锁，P2 获取失败</li>
+</ul>
+<p>利用 GETSET 返回旧值的特性，可以在检测到超时的时候，执行 GETSET 设置新的超时时间，即使有多个进程同时执行 GETSET，最终也只会有一个判定设置成功，从而获得锁。</p>
+<h4 id="Python-实现"><a href="#Python-实现" class="headerlink" title="Python 实现"></a>Python 实现</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div></pre></td><td class="code"><pre><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">Lock</span><span class="params">(object)</span>:</span></div><div class="line">    <span class="string">"""</span></div><div class="line">    A shared, distributed Lock. Using Redis for locking allows the Lock</div><div class="line">    to be shared across processes and/or machines.</div><div class="line"></div><div class="line">    It's left to the user to resolve deadlock issues and make sure</div><div class="line">    multiple clients play nicely together.</div><div class="line">    """</div><div class="line"></div><div class="line">    LOCK_FOREVER = float(<span class="number">2</span> ** <span class="number">31</span> + <span class="number">1</span>)  <span class="comment"># 1 past max unix time</span></div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, redis, name, timeout=None, sleep=<span class="number">0.1</span>)</span>:</span></div><div class="line">        <span class="string">"""</span></div><div class="line">        Create a new Lock instnace named ``name`` using the Redis client</div><div class="line">        supplied by ``redis``.</div><div class="line"></div><div class="line">        ``timeout`` indicates a maximum life for the lock.</div><div class="line">        By default, it will remain locked until release() is called.</div><div class="line"></div><div class="line">        ``sleep`` indicates the amount of time to sleep per loop iteration</div><div class="line">        when the lock is in blocking mode and another client is currently</div><div class="line">        holding the lock.</div><div class="line"></div><div class="line">        Note: If using ``timeout``, you should make sure all the hosts</div><div class="line">        that are running clients have their time synchronized with a network</div><div class="line">        time service like ntp.</div><div class="line">        """</div><div class="line">        self.redis = redis</div><div class="line">        self.name = name</div><div class="line">        self.acquired_until = <span class="keyword">None</span></div><div class="line">        self.timeout = timeout</div><div class="line">        self.sleep = sleep</div><div class="line">        <span class="keyword">if</span> self.timeout <span class="keyword">and</span> self.sleep &gt; self.timeout:</div><div class="line">            <span class="keyword">raise</span> LockError(<span class="string">"'sleep' must be less than 'timeout'"</span>)</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__enter__</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="keyword">return</span> self.acquire()</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__exit__</span><span class="params">(self, exc_type, exc_value, traceback)</span>:</span></div><div class="line">        self.release()</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">acquire</span><span class="params">(self, blocking=True)</span>:</span></div><div class="line">        <span class="string">"""</span></div><div class="line">        Use Redis to hold a shared, distributed lock named ``name``.</div><div class="line">        Returns True once the lock is acquired.</div><div class="line"></div><div class="line">        If ``blocking`` is False, always return immediately. If the lock</div><div class="line">        was acquired, return True, otherwise return False.</div><div class="line">        """</div><div class="line">        sleep = self.sleep</div><div class="line">        timeout = self.timeout</div><div class="line">        <span class="keyword">while</span> <span class="number">1</span>:</div><div class="line">            unixtime = mod_time.time()</div><div class="line">            <span class="keyword">if</span> timeout:</div><div class="line">                timeout_at = unixtime + timeout</div><div class="line">            <span class="keyword">else</span>:</div><div class="line">                timeout_at = Lock.LOCK_FOREVER</div><div class="line">            timeout_at = float(timeout_at)</div><div class="line">            <span class="keyword">if</span> self.redis.setnx(self.name, timeout_at):</div><div class="line">                self.acquired_until = timeout_at</div><div class="line">                <span class="keyword">return</span> <span class="keyword">True</span></div><div class="line">            <span class="comment"># We want blocking, but didn't acquire the lock</span></div><div class="line">            <span class="comment"># check to see if the current lock is expired</span></div><div class="line">            existing = float(self.redis.get(self.name) <span class="keyword">or</span> <span class="number">1</span>)</div><div class="line">            <span class="keyword">if</span> existing &lt; unixtime:</div><div class="line">                <span class="comment"># the previous lock is expired, attempt to overwrite it</span></div><div class="line">                existing = float(self.redis.getset(self.name, timeout_at) <span class="keyword">or</span> <span class="number">1</span>)</div><div class="line">                <span class="keyword">if</span> existing &lt; unixtime:</div><div class="line">                    <span class="comment"># we successfully acquired the lock</span></div><div class="line">                    self.acquired_until = timeout_at</div><div class="line">                    <span class="keyword">return</span> <span class="keyword">True</span></div><div class="line">            <span class="keyword">if</span> <span class="keyword">not</span> blocking:</div><div class="line">                <span class="keyword">return</span> <span class="keyword">False</span></div><div class="line">            mod_time.sleep(sleep)</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">def</span> <span class="title">release</span><span class="params">(self)</span>:</span></div><div class="line">        <span class="string">"Releases the already acquired lock"</span></div><div class="line">        <span class="keyword">if</span> self.acquired_until <span class="keyword">is</span> <span class="keyword">None</span>:</div><div class="line">            <span class="keyword">raise</span> ValueError(<span class="string">"Cannot release an unlocked lock"</span>)</div><div class="line">        existing = float(self.redis.get(self.name) <span class="keyword">or</span> <span class="number">1</span>)</div><div class="line">        <span class="comment"># if the lock time is in the future, delete the lock</span></div><div class="line">        delete_lock = existing &gt;= self.acquired_until</div><div class="line">        self.acquired_until = <span class="keyword">None</span></div><div class="line">        <span class="keyword">if</span> delete_lock:</div><div class="line">            self.redis.delete(self.name)</div></pre></td></tr></table></figure>
+
+          
+        
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
     <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/07/18/restful_design/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -348,8 +532,8 @@
               
               
                 <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/架构/" itemprop="url" rel="index">
-                    <span itemprop="name">架构</span>
+                  <a href="/categories/网站开发/" itemprop="url" rel="index">
+                    <span itemprop="name">网站开发</span>
                   </a>
                 </span>
 
@@ -1967,180 +2151,6 @@
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2016/11/12/redis_skip_list/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="柿子">
-      <meta itemprop="description" content="">
-      <meta itemprop="image" content="/images/avatar.jpg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="柿子的果盘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2016/11/12/redis_skip_list/" itemprop="url">Redis数据结构: 跳跃表</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2016-11-12T00:00:00+08:00">
-                2016-11-12
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category" >
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/开源项目/" itemprop="url" rel="index">
-                    <span itemprop="name">开源项目</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-              <span class="post-comments-count">
-                <span class="post-meta-divider">|</span>
-                <span class="post-meta-item-icon">
-                  <i class="fa fa-comment-o"></i>
-                </span>
-                <a href="/2016/11/12/redis_skip_list/#comments" itemprop="discussionUrl">
-                  评论数 <span class="post-comments-count fb-comments-count" data-href="http://yoursite.com/2016/11/12/redis_skip_list/" itemprop="commentCount">0</span>
-                </a>
-              </span>
-            
-          
-
-          
-          
-             <span id="/2016/11/12/redis_skip_list/" class="leancloud_visitors" data-flag-title="Redis数据结构: 跳跃表">
-               <span class="post-meta-divider">|</span>
-               <span class="post-meta-item-icon">
-                 <i class="fa fa-eye"></i>
-               </span>
-               
-                 <span class="post-meta-item-text">阅读次数 </span>
-               
-                 <span class="leancloud-visitors-count"></span>
-             </span>
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <p>对于普通的链表而言，即使包含的元素是有序的，包括查找在内的各项操作的时间复杂度也是 O(N)，并没有使用有序的特性。而跳跃表则是对于链表的改良，通过增加额外的空间，使得各项操作的时间复杂度降低。</p>
-<p>与双端链表和哈希表相比，跳跃表这个概念大部分人都会觉得陌生一些，之前学数据结构的时候学过，但从来没有使用过，现在看到 Redis 里面实现的跳跃表，就把这个数据结构温习一下，在这边也做个介绍。跳跃表通过对有序链表的每个节点增加一些前进链接，获得快速查找访问节点的能力。下图是一个跳跃表的示例（来自百度百科）：</p>
-<p><img src="http://ocx5ae9jo.bkt.clouddn.com/skip-list-example.jpg" width="500px;" height="200px;"></p>
-<p>跳跃表是按层建造的。底层是一个普通的有序链表。每个更高层的构建都是为了跳跃若干个节点更快地定位到需要查找的节点。在构建跳跃表的时候，设定每层会向上增长的概率为 1 / p，则第 m 层向上增长的概率为 1 / p^m；假设链表中的元素个数为 n，则在 m 层元素数目的期望是 n / p^m；当这个数量为 1 时，m = log p(n) 即为层数。而将所有的层上的节点数量相加，即 n + n / p + …… + 1 &lt; 2 n，因此跳跃表的空间复杂度是 O(N)。对于一个节点而言，它恰好层数等于 1 的概率为 1 - p，层数等于 2 的概率为 p (1 - p)，层数等于 3 的概率为 p^2 (1 - p)，因此，一个节点的平均层数为 1 (1 - p) + 2 p (1 - p) + 3 p^2 (1 - p) + … = 1 / (1 - p)，这就是一个节点对应的指针数量。<br>跳跃列表的时间复杂度的分析比较复杂，这边只给结论，它的平均时间复杂度为 O(log n)。具体的推导过程可以查看 William Pugh 的论文 <a href="ftp://ftp.cs.umd.edu/pub/skipLists/skiplists.pdf" target="_blank" rel="external">Skip Lists: A Probabilistic Alternative to Balanced Trees</a>。</p>
-<p>可能也有人会问，各类的平衡树也可以用类似的时间复杂度来实现同样的功能，那么为什么 Redis 不用平衡树呢？具体的比较如下：</p>
-<ul>
-<li>在做范围查找的时候，平衡树比跳跃表操作要复杂。在平衡树上，我们找到指定范围的小值之后，还需要以中序遍历的顺序继续寻找其它不超过大值的节点。如果不对平衡树进行一定的改造，这里的中序遍历并不容易实现。而在skiplist上进行范围查找就非常简单，只需要在找到小值之后，对第1层链表进行若干步的遍历就可以实现。</li>
-<li>平衡树的插入和删除操作可能引发子树的调整，逻辑复杂，而skiplist的插入和删除只需要修改相邻节点的指针，操作简单又快速。</li>
-<li>从内存占用上来说，跳跃表比平衡树更灵活一些。一般来说，平衡树每个节点包含2个指针（分别指向左右子树），而跳跃表每个节点包含的指针数目平均为 1 / (1 - p)，具体取决于参数 p 的大小。在 Redis 实现时，p = 1 / 4，那么平均每个节点包含 1.33 个指针，所需要的存储空间比平衡树更小。</li>
-<li>跳跃表的实现比平衡树更简单。</li>
-</ul>
-<p>基于上述的考虑，Redis 采用了性能相似，但在存储空间更节省，时间复杂度更低的跳跃表来进行有序元素的存储。</p>
-<h3 id="基本结构"><a href="#基本结构" class="headerlink" title="基本结构"></a>基本结构</h3><p>在 server.h 中定义了跳跃表的节点结构：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">zskiplistNode</span> &#123;</span></div><div class="line">    sds ele;                                <span class="comment">// 字符串指针</span></div><div class="line">    <span class="keyword">double</span> score;                           <span class="comment">// 分值</span></div><div class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">zskiplistNode</span> *<span class="title">backward</span>;</span>         <span class="comment">// 后退指针</span></div><div class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">zskiplistLevel</span> &#123;</span></div><div class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">zskiplistNode</span> *<span class="title">forward</span>;</span>      <span class="comment">// 前进指针</span></div><div class="line">        <span class="keyword">unsigned</span> <span class="keyword">int</span> span;                  <span class="comment">// 跨度</span></div><div class="line">    &#125; level[];                              <span class="comment">// 该结点出现在的不同层</span></div><div class="line">&#125; zskiplistNode;</div></pre></td></tr></table></figure>
-<p>在这个结构中，定义了跳跃表需要的一些基本属性：成员对象、分值和不同层的前进指针和跨度。另外，多定义了一个后退指针，主要是为了能够从表尾开始遍历整个链表。另外，由于在 Redis 中跳跃表的作用比较有限，所以在最新的版本中，把跳跃表的成员对象的类型改为 sds。</p>
-<p>在经典的跳跃表中，只需要使用上述定义的节点结构就可以实现跳跃表。但是为了方便诸如节点数量查询，从表尾遍历等操作，定义了一个结构存储链表的一些相关信息，具体如下：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">zskiplist</span> &#123;</span></div><div class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">zskiplistNode</span> *<span class="title">header</span>, *<span class="title">tail</span>;</span>    <span class="comment">// 表头节点和表尾节点</span></div><div class="line">    <span class="keyword">unsigned</span> <span class="keyword">long</span> length;                   <span class="comment">// 表中节点的数量</span></div><div class="line">    <span class="keyword">int</span> level;                              <span class="comment">// 表中层数最大的节点的层数</span></div><div class="line">&#125; zskiplist;</div></pre></td></tr></table></figure>
-<h3 id="各类操作"><a href="#各类操作" class="headerlink" title="各类操作"></a>各类操作</h3><p>在上述定义的结构中，我们可以进行链表相关的各类操作，由于添加操作中包含查询的相关逻辑，因此，我们就来看看添加操作的代码，查询元素，或者按照排位查询元素的逻辑也基本类似。<br>添加操作的代码在 tzset.c 中，这个操作的平均时间复杂度为 O(log N)，最差的时间复杂度为 O(N)，具体的细节参见代码的注释：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div></pre></td><td class="code"><pre><div class="line"><span class="function">zskiplistNode *<span class="title">zslInsert</span><span class="params">(zskiplist *zsl, <span class="keyword">double</span> score, robj *obj)</span> </span>&#123;</div><div class="line">    zskiplistNode *update[ZSKIPLIST_MAXLEVEL], *x;</div><div class="line">    <span class="keyword">unsigned</span> <span class="keyword">int</span> rank[ZSKIPLIST_MAXLEVEL];</div><div class="line">    <span class="keyword">int</span> i, level;</div><div class="line">    redisAssert(!isnan(score));</div><div class="line">    <span class="comment">// 在各个层查找节点的插入位置</span></div><div class="line">    x = zsl-&gt;header;</div><div class="line">    <span class="keyword">for</span> (i = zsl-&gt;level<span class="number">-1</span>; i &gt;= <span class="number">0</span>; i--) &#123;</div><div class="line">        <span class="comment">// 如果 i 不是 zsl-&gt;level-1 层，那么 i 层的起始 rank 值为 i+1 层的 rank 值</span></div><div class="line">        <span class="comment">// 最终 rank[0] 的值加一就是新节点的前置节点的排位</span></div><div class="line">        rank[i] = i == (zsl-&gt;level<span class="number">-1</span>) ? <span class="number">0</span> : rank[i+<span class="number">1</span>];</div><div class="line">        <span class="comment">// 沿着前进指针遍历跳跃表</span></div><div class="line">        <span class="keyword">while</span> (x-&gt;level[i].forward &amp;&amp;</div><div class="line">            (x-&gt;level[i].forward-&gt;score &lt; score ||</div><div class="line">                <span class="comment">// 比对分值</span></div><div class="line">                (x-&gt;level[i].forward-&gt;score == score &amp;&amp;</div><div class="line">                <span class="comment">// 比对成员， T = O(N)</span></div><div class="line">                compareStringObjects(x-&gt;level[i].forward-&gt;obj,obj) &lt; <span class="number">0</span>))) &#123;</div><div class="line">            <span class="comment">// 记录沿途跨越了多少个节点</span></div><div class="line">            rank[i] += x-&gt;level[i].span;</div><div class="line">            <span class="comment">// 移动至下一指针</span></div><div class="line">            x = x-&gt;level[i].forward;</div><div class="line">        &#125;</div><div class="line">        <span class="comment">// 记录将要和新节点相连接的节点</span></div><div class="line">        update[i] = x;</div><div class="line">    &#125;</div><div class="line">    <span class="comment">/*</span></div><div class="line">     * zslInsert() 的调用者会确保同分值且同成员的元素不会出现，</div><div class="line">     * 所以这里不需要进一步进行检查，可以直接创建新元素。</div><div class="line">     */</div><div class="line">    <span class="comment">// 获取一个随机值作为新节点的层数，</span></div><div class="line">    level = zslRandomLevel();</div><div class="line">    <span class="comment">// 如果新节点的层数比表中其他节点的层数都要大</span></div><div class="line">    <span class="comment">// 那么初始化表头节点中未使用的层，并将它们记录到 update 数组中</span></div><div class="line">    <span class="comment">// 将来也指向新节点</span></div><div class="line">    <span class="keyword">if</span> (level &gt; zsl-&gt;level) &#123;</div><div class="line">        <span class="comment">// 初始化未使用层</span></div><div class="line">        <span class="keyword">for</span> (i = zsl-&gt;level; i &lt; level; i++) &#123;</div><div class="line">            rank[i] = <span class="number">0</span>;</div><div class="line">            update[i] = zsl-&gt;header;</div><div class="line">            update[i]-&gt;level[i].span = zsl-&gt;length;</div><div class="line">        &#125;</div><div class="line">        <span class="comment">// 更新表中节点最大层数</span></div><div class="line">        zsl-&gt;level = level;</div><div class="line">    &#125;</div><div class="line">    <span class="comment">// 创建新节点</span></div><div class="line">    x = zslCreateNode(level,score,obj);</div><div class="line">    <span class="comment">// 将前面记录的指针指向新节点，并做相应的设置</span></div><div class="line">    <span class="comment">// T = O(1)</span></div><div class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; level; i++) &#123;</div><div class="line"></div><div class="line">        <span class="comment">// 设置新节点的 forward 指针</span></div><div class="line">        x-&gt;level[i].forward = update[i]-&gt;level[i].forward;</div><div class="line"></div><div class="line">        <span class="comment">// 将沿途记录的各个节点的 forward 指针指向新节点</span></div><div class="line">        update[i]-&gt;level[i].forward = x;</div><div class="line">        <span class="comment">/* update span covered by update[i] as x is inserted here */</span></div><div class="line">        <span class="comment">// 计算新节点跨越的节点数量</span></div><div class="line">        x-&gt;level[i].span = update[i]-&gt;level[i].span - (rank[<span class="number">0</span>] - rank[i]);</div><div class="line">        <span class="comment">// 更新新节点插入之后，沿途节点的 span 值</span></div><div class="line">        <span class="comment">// 其中的 +1 计算的是新节点</span></div><div class="line">        update[i]-&gt;level[i].span = (rank[<span class="number">0</span>] - rank[i]) + <span class="number">1</span>;</div><div class="line">    &#125;</div><div class="line">    <span class="comment">/* increment span for untouched levels */</span></div><div class="line">    <span class="comment">// 未接触的节点的 span 值也需要增一，这些节点直接从表头指向新节点</span></div><div class="line">    <span class="comment">// T = O(1)</span></div><div class="line">    <span class="keyword">for</span> (i = level; i &lt; zsl-&gt;level; i++) &#123;</div><div class="line">        update[i]-&gt;level[i].span++;</div><div class="line">    &#125;</div><div class="line">    <span class="comment">// 设置新节点的后退指针</span></div><div class="line">    x-&gt;backward = (update[<span class="number">0</span>] == zsl-&gt;header) ? <span class="literal">NULL</span> : update[<span class="number">0</span>];</div><div class="line">    <span class="keyword">if</span> (x-&gt;level[<span class="number">0</span>].forward)</div><div class="line">        x-&gt;level[<span class="number">0</span>].forward-&gt;backward = x;</div><div class="line">    <span class="keyword">else</span></div><div class="line">        zsl-&gt;tail = x;</div><div class="line">    <span class="comment">// 跳跃表的节点计数增一</span></div><div class="line">    zsl-&gt;length++;</div><div class="line">    <span class="keyword">return</span> x;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>此外，Redis 实现的跳跃表除了常规的链表操作以外，还增加了一些与范围相关的操作，具体的实现方式与上述的添加操作也类似。Redis 定义的范围有两种，一种是按照数值的大小定义的区间，另一种是按照字典序的先后定义的区间，跳跃表对于这两种范围都定义了操作。主要的操作有：判断给定的节点是否在范围中，范围中的第一个节点或最后一个节点，以及删除范围中的所有节点。</p>
-
-          
-        
-      
-    </div>
-
-    <div>
-      
-    </div>
-
-    <div>
-      
-    </div>
-
-    <div>
-      
-    </div>
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-
-
-    
   </section>
 
   
@@ -2190,7 +2200,7 @@
           
             <div class="site-state-item site-state-posts">
               <a href="/archives/">
-                <span class="site-state-item-count">19</span>
+                <span class="site-state-item-count">20</span>
                 <span class="site-state-item-name">日志</span>
               </a>
             </div>
