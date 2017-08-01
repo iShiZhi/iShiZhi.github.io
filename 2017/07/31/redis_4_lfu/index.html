@@ -1,0 +1,910 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Redis," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.1.1" />
+
+
+
+
+
+
+<meta name="description" content="常用淘汰算法淘汰算法的核心是预测数据未来被访问的可能性，优先淘汰概率最低的。常用的淘汰算法有三种：  FIFO：核心原则是如果数据最先进入缓存，则最先被淘汰，实现简单，但是太暴力 LRU：核心原则是最近没有被使用的数据，在未来被使用的可能性也最低，最先淘汰 LFU：核心原则是最近使用频率最低的数据，在未来被使用的可能性也最低，最先淘汰  Redis LRU 实现在 Redis 中实现的 LRU 算">
+<meta name="keywords" content="Redis">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Redis 4.0 新功能：LFU 数据淘汰策略">
+<meta property="og:url" content="http://yoursite.com/2017/07/31/redis_4_lfu/index.html">
+<meta property="og:site_name" content="柿子的果盘">
+<meta property="og:description" content="常用淘汰算法淘汰算法的核心是预测数据未来被访问的可能性，优先淘汰概率最低的。常用的淘汰算法有三种：  FIFO：核心原则是如果数据最先进入缓存，则最先被淘汰，实现简单，但是太暴力 LRU：核心原则是最近没有被使用的数据，在未来被使用的可能性也最低，最先淘汰 LFU：核心原则是最近使用频率最低的数据，在未来被使用的可能性也最低，最先淘汰  Redis LRU 实现在 Redis 中实现的 LRU 算">
+<meta property="og:updated_time" content="2017-08-01T08:36:34.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Redis 4.0 新功能：LFU 数据淘汰策略">
+<meta name="twitter:description" content="常用淘汰算法淘汰算法的核心是预测数据未来被访问的可能性，优先淘汰概率最低的。常用的淘汰算法有三种：  FIFO：核心原则是如果数据最先进入缓存，则最先被淘汰，实现简单，但是太暴力 LRU：核心原则是最近没有被使用的数据，在未来被使用的可能性也最低，最先淘汰 LFU：核心原则是最近使用频率最低的数据，在未来被使用的可能性也最低，最先淘汰  Redis LRU 实现在 Redis 中实现的 LRU 算">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post","offset":12,"offset_float":0,"b2t":false,"scrollpercent":false},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2017/07/31/redis_4_lfu/"/>
+
+
+
+
+
+  <title>Redis 4.0 新功能：LFU 数据淘汰策略 | 柿子的果盘</title>
+  
+<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '328629287562794',
+      xfbml      : true,
+      version    : 'v2.6'
+    });
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "//connect.facebook.net/zh_Hans/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script>
+
+
+
+
+
+
+  <script type="text/javascript">
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?30798a6e72702e12c529efb9326dc7e1";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">柿子的果盘</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle">随手记录一些所读、所思、所感</p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/07/31/redis_4_lfu/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="柿子">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="柿子的果盘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">Redis 4.0 新功能：LFU 数据淘汰策略</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-07-31T00:00:00+08:00">
+                2017-07-31
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/开源项目/" itemprop="url" rel="index">
+                    <span itemprop="name">开源项目</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/2017/07/31/redis_4_lfu/#comments" itemprop="discussionUrl">
+                  评论数 <span class="post-comments-count fb-comments-count" data-href="http://yoursite.com/2017/07/31/redis_4_lfu/" itemprop="commentCount">0</span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+             <span id="/2017/07/31/redis_4_lfu/" class="leancloud_visitors" data-flag-title="Redis 4.0 新功能：LFU 数据淘汰策略">
+               <span class="post-meta-divider">|</span>
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               
+                 <span class="post-meta-item-text">阅读次数 </span>
+               
+                 <span class="leancloud-visitors-count"></span>
+             </span>
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h3 id="常用淘汰算法"><a href="#常用淘汰算法" class="headerlink" title="常用淘汰算法"></a>常用淘汰算法</h3><p>淘汰算法的核心是预测数据未来被访问的可能性，优先淘汰概率最低的。<br>常用的淘汰算法有三种：</p>
+<ul>
+<li>FIFO：核心原则是如果数据最先进入缓存，则最先被淘汰，实现简单，但是太暴力</li>
+<li>LRU：核心原则是最近没有被使用的数据，在未来被使用的可能性也最低，最先淘汰</li>
+<li>LFU：核心原则是最近使用频率最低的数据，在未来被使用的可能性也最低，最先淘汰</li>
+</ul>
+<h3 id="Redis-LRU-实现"><a href="#Redis-LRU-实现" class="headerlink" title="Redis LRU 实现"></a>Redis LRU 实现</h3><p>在 Redis 中实现的 LRU 算法使用了一些比较 tricky 的策略用来提升性能：</p>
+<ul>
+<li>并不是取所有数据中访问时间最早的，而是随机选取 N 个数据项，淘汰掉时间最早的</li>
+<li>使用随机选取的 N 个数据项建立备选池，只有当数据老于这个池中最老的数据，才会发生更替</li>
+</ul>
+<p>在 Redis 4.0 的改版中，antirez 还针对使用多个 Redis 数据库做缓存做了优化，在老的版本中，多个数据库各自维护备选池，而在新的版本中，多个数据库维护一个共有的备选池，数据项额外加上数据库 ID。这样可以避免某一些数据库存储的都是老数据，另一些数据库存储的都是新数据的情况。</p>
+<h3 id="Redis-LFU-实现"><a href="#Redis-LFU-实现" class="headerlink" title="Redis LFU 实现"></a>Redis LFU 实现</h3><p>在经过多轮优化尝试没有获得提升效果以后，antirez 认为这是 LRU 策略本身的短板，于是开始考虑实现 LFU 策略。他认为，从策略角度来看，LRU 是 LFU 的一种简化版。<br>在实现过程中，存在两个问题：</p>
+<ul>
+<li>在 LRU 中，由于只要根据最近访问时间进行判断，这样可以使用一个链表，以及 O(1) 时间复杂度的操作进行维护，但是 LFU 需要维护所有数据的访问次数</li>
+<li>LFU 不能只保存访问次数，因为访问的模式会在变化，所以每隔一段时间，需要对访问次数对应的分值进行调整，而 Redis 中只保留了24 bits 来支持数据淘汰策略</li>
+</ul>
+<p>对于第一个问题，antirez 沿用了 LRU 的处理方法：不严格按照访问次数进行维护，而是在需要选择淘汰数据的时候，随机采样 N 个数据项，淘汰掉次数最少的（感觉 antirez 很喜欢用随机采样进行近似，并且认为这个近似是有效的）<br>对于第二个问题，antirez 按照这样的方式分配 24 bits，其中 16 bits 用于记录最后调整计数器的时间，8 bits 用于记录计数器。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">+----------------+--------+</div><div class="line">+     16 bits    | 8 bits +</div><div class="line">+----------------+--------+</div><div class="line">+ Last decr time | LOG_C  |</div><div class="line">+----------------+--------+</div></pre></td></tr></table></figure></p>
+<p>在计数器部分，antirez 使用了对数效果的计数器（使用概率的方式达到类似对数的效果），具体实现如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">uint8_t</span> LFULogIncr(<span class="keyword">uint8_t</span> counter) &#123;</div><div class="line">    <span class="keyword">if</span> (counter == <span class="number">255</span>) <span class="keyword">return</span> <span class="number">255</span>;</div><div class="line">    <span class="keyword">double</span> r = (<span class="keyword">double</span>)rand()/RAND_MAX;</div><div class="line">    <span class="keyword">double</span> baseval = counter - LFU_INIT_VAL;</div><div class="line">    <span class="keyword">if</span> (baseval &lt; <span class="number">0</span>) baseval = <span class="number">0</span>;</div><div class="line">    <span class="keyword">double</span> p = <span class="number">1.0</span>/(baseval*server.lfu_log_factor+<span class="number">1</span>);</div><div class="line">    <span class="keyword">if</span> (r &lt; p) counter++;</div><div class="line">    <span class="keyword">return</span> counter;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>调整计数器的时机是在随机采样的时候，如果具体上次的调整时间已经超过阈值，且计数器的值超过阈值，则将计数器的值减半。<br>此外，对于新数据，分配的计数器是 5，而不是 0，否则新数据大概率被淘汰，从而导致策略失效。</p>
+<h3 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h3><ul>
+<li><a href="http://antirez.com/news/109" target="_blank" rel="external">Random notes on improving the Redis LRU algorithm</a></li>
+</ul>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Redis/" rel="tag"># Redis</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/07/31/redis_4_mix_persistancy/" rel="next" title="Redis 4.0 新功能：混合持久化">
+                <i class="fa fa-chevron-left"></i> Redis 4.0 新功能：混合持久化
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div class="fb-comments"
+           data-href="http://yoursite.com/2017/07/31/redis_4_lfu/"
+           data-numposts="10"
+           data-width="100%"
+           data-colorscheme="light">
+      </div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/images/avatar.jpg"
+               alt="柿子" />
+          <p class="site-author-name" itemprop="name">柿子</p>
+           
+              <p class="site-description motion-element" itemprop="description">一个非主流程序员</p>
+          
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives/">
+                <span class="site-state-item-count">26</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">5</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">7</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#常用淘汰算法"><span class="nav-number">1.</span> <span class="nav-text">常用淘汰算法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Redis-LRU-实现"><span class="nav-number">2.</span> <span class="nav-text">Redis LRU 实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Redis-LFU-实现"><span class="nav-number">3.</span> <span class="nav-text">Redis LFU 实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#参考资料"><span class="nav-number">4.</span> <span class="nav-text">参考资料</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">柿子</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.1.js"></script>
+  <script>AV.initialize("m5cJ6uWE1c1GaX65w4A1DubN-gzGzoHsz", "kI8J0OH8eDBG6WdG10XRj37j");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
